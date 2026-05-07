@@ -1,0 +1,200 @@
+[
+  {
+    "question": "What is the result of the analysis of TAF6 δ -responsive promoters regarding the enrichment of DPEs or core promoter elements?",
+    "expected_answer": "no statistically significant enrichment of DPEs or any of the known core promoter element within the promoter regions of genes induced by TAF6 δ",
+    "relevant_chunk_ids": [
+      "7d85fad05c7a863a51354d153f86dd3b"
+    ],
+    "source_file": "1471-2199-11-10.pdf",
+    "section": "Discussion",
+    "question_type": "factual",
+    "id": 1
+  },
+  {
+    "question": "What distinguishes the TAF6 δ transcriptome signature from those resulting from depletion of TAF9 and/or TAF9b?",
+    "expected_answer": "The only currently known functional distinction between pro-apoptotic TAF6 δ and TAF6 a is that TAF6 δ cannot interact with TAF9 or TAF9b.",
+    "relevant_chunk_ids": [
+      "5076fd610926ad3196fc436b86f12087"
+    ],
+    "source_file": "1471-2199-11-10.pdf",
+    "section": "Results",
+    "question_type": "comparative",
+    "id": 2
+  },
+  {
+    "question": "What pathways were found to have novel links with TAF6 δ expression according to the transcriptome data?",
+    "expected_answer": "Notch, oxidative stress response, integrin, p53, p53 feedback loop 2, and angiogenesis pathways",
+    "relevant_chunk_ids": [
+      "56803ca3c0447bb3e21b66918f7b90de"
+    ],
+    "source_file": "1471-2199-11-10.pdf",
+    "section": "Conclusion",
+    "question_type": "factual",
+    "id": 3
+  },
+  {
+    "question": "How many human brain metastases from different cancers were analyzed for complex I subunit NDUFB8 expression levels?",
+    "expected_answer": "197",
+    "relevant_chunk_ids": [
+      "61de577009b4ab40803f2fed69cb6332"
+    ],
+    "source_file": "40478_2019_Article_712.pdf",
+    "section": "Conclusions",
+    "question_type": "factual",
+    "id": 4
+  },
+  {
+    "question": "How many genes were identified in the brain metastasis signature?",
+    "expected_answer": "108",
+    "relevant_chunk_ids": [
+      "cdaad36bc4bbbbad9251fb6c4ff2edcc"
+    ],
+    "source_file": "40478_2019_Article_712.pdf",
+    "section": "Results",
+    "question_type": "factual",
+    "id": 5
+  },
+  {
+    "question": "What is the outcome of statistically controlling the criteria for circumstantial complexity reduction in probability landscapes?",
+    "expected_answer": "an optimal probability landscape is created in a biological question dependent manner",
+    "relevant_chunk_ids": [
+      "153d3cd6c35d66c274c00ba8bc027443"
+    ],
+    "source_file": "feature-context-dependency-and-complexity-reduction-in-probability-landscapes-for-integrative-genomics.pdf",
+    "section": "Conclusion",
+    "question_type": "factual",
+    "id": 6
+  },
+  {
+    "question": "How do the effects of swapping probabilities on the median and distribution differ between the case where only the 899 probes are considered in isolation and the case where the entire dataset is considered?",
+    "expected_answer": "Swapping probabilities have an almost undetectable effect on the median as well as the entire distribution when the entire dataset is considered, whereas considering only the 899 probes in isolation shows an increase in the median and a starkly modified overall distribution.",
+    "relevant_chunk_ids": [
+      "ec6ced15787ecf10b9f169beaeb6bf5c"
+    ],
+    "source_file": "feature-context-dependency-and-complexity-reduction-in-probability-landscapes-for-integrative-genomics.pdf",
+    "section": "Results",
+    "question_type": "comparative",
+    "id": 7
+  },
+  {
+    "question": "What is an alternative option to construct when the feature X takes continuous values?",
+    "expected_answer": "to discretize the probability profile itself, using e.g. statistically meaningful threshold to partition the range of values of the density and replace at each nucleotide position n by an array of numbers",
+    "relevant_chunk_ids": [
+      "d64e435dc901f39c44a626fe9fbae130"
+    ],
+    "source_file": "feature-context-dependency-and-complexity-reduction-in-probability-landscapes-for-integrative-genomics.pdf",
+    "section": "Methods",
+    "question_type": "factual",
+    "id": 8
+  },
+  {
+    "question": "How does the effect of β-sitosterol on cancer cells differ from the effect of altered cholesterol loading in cancer cells?",
+    "expected_answer": "β-sitosterol increases membrane fluidity and reduces mitochondrial respiration, whereas altered cholesterol loading may impair mitochondrial function leading to apoptosis protection",
+    "relevant_chunk_ids": [
+      "ee4382038e79339064b0f2256c61bbb7"
+    ],
+    "source_file": "inhibition-of-mitochondrial-respiration-prevents-braf-mutant-melanoma-brain-metastasis.pdf",
+    "section": "Discussion",
+    "question_type": "comparative",
+    "id": 9
+  },
+  {
+    "question": "What was the minimum number of cells aimed for in each sample for subsequent RNA sequencing?",
+    "expected_answer": "150,000",
+    "relevant_chunk_ids": [
+      "5ff1a4dbbc5315d65c0efb4257e312cd"
+    ],
+    "source_file": "inhibition-of-mitochondrial-respiration-prevents-braf-mutant-melanoma-brain-metastasis.pdf",
+    "section": "Materials and methods",
+    "question_type": "factual",
+    "id": 10
+  },
+  {
+    "question": "What method was used to identify a region surrounding the native parS cluster that is tolerable to the insertion of a second parS cluster without severely affecting cell viability?",
+    "expected_answer": "transposon mutagenesis coupled with deep sequencing (Tn-seq)",
+    "relevant_chunk_ids": [
+      "16c48af3c3d06bf7a21774ac7a00f9d9"
+    ],
+    "source_file": "permissive-zones-for-the-centromere-binding-protein-parb-on-the-caulobacter-crescentus-chromosome.pdf",
+    "section": "ABSTRACT",
+    "question_type": "factual",
+    "id": 11
+  },
+  {
+    "question": "How do the number of cells with no or more than two CFP-ParB foci differ between strains with and without an ectopic parS 3+4 site?",
+    "expected_answer": "The number of cells with no or more than two CFP-ParB foci were elevated ∼ 11-fold in comparison to strains without an ectopic parS 3+4.",
+    "relevant_chunk_ids": [
+      "5b7fbcdfc0703f596f97cd00ed0db875"
+    ],
+    "source_file": "permissive-zones-for-the-centromere-binding-protein-parb-on-the-caulobacter-crescentus-chromosome.pdf",
+    "section": "INTRODUCTION",
+    "question_type": "comparative",
+    "id": 12
+  },
+  {
+    "question": "How many hours after the second transfection were protein extracts from cells analyzed by immunoblotting with monoclonal antibodies?",
+    "expected_answer": "38",
+    "relevant_chunk_ids": [
+      "7fd0be14d9ec8713188768b46e76b9e6"
+    ],
+    "source_file": "taf6delta-controls-apoptosis-and-gene-expression-in-the-absence-of-p53.pdf",
+    "section": "Results",
+    "question_type": "factual",
+    "id": 13
+  },
+  {
+    "question": "How do the primers for Taf6 and Bcl-x differ in their sequences?",
+    "expected_answer": "Taf6 forward 5'-ATGGGCATCGCCCAGATTCAGG-3' and reverse 5'-AAGGCGTAGTCAATGTCACTGG-3', Bcl-x forward 5'-TCATTTCCGACTGAAGAGTGA-3' and reverse 5'-ATGGCAGCAGTAAAGCAAGCG-3'",
+    "relevant_chunk_ids": [
+      "14a2f7a1d25530325448d124941449b2"
+    ],
+    "source_file": "taf6delta-controls-apoptosis-and-gene-expression-in-the-absence-of-p53.pdf",
+    "section": "Materials and Methods",
+    "question_type": "comparative",
+    "id": 14
+  },
+  {
+    "question": "What is known about the effect of altered cholesterol loading in cancer cells on mitochondrial function?",
+    "expected_answer": "it may impair mitochondrial function leading to apoptosis protection",
+    "relevant_chunk_ids": [
+      "aa6424f819f3da95d512918ca07f3437"
+    ],
+    "source_file": "40478_2019_Article_712.pdf",
+    "section": "Discussion",
+    "question_type": "factual",
+    "id": 15
+  },
+  {
+    "question": "How do the expression levels of complex I subunit NDUFB8 differ between BRAF mutated melanoma and BRAF wild type melanoma?",
+    "expected_answer": "The expression levels of complex I subunit NDUFB8 in BRAF mutated melanoma (BRAFV600E; n = 24) and BRAF wild type melanoma (no BRAFV600E; n = 23) are not significant, as indicated by the Kruskal-Wallis test with Dunn’s multiple comparisons test, which shows n.s.: not significant.",
+    "relevant_chunk_ids": [
+      "2fc190e7af9bf4f1dcd55a6a99b79380"
+    ],
+    "source_file": "inhibition-of-mitochondrial-respiration-prevents-braf-mutant-melanoma-brain-metastasis.pdf",
+    "section": "Conclusions",
+    "question_type": "comparative",
+    "id": 16
+  },
+  {
+    "question": "In which organism was the spreading of AspA, a ParB-unrelated DNA segregation protein, described?",
+    "expected_answer": "the archaeal Sulfolobus pNOB8 plasmid",
+    "relevant_chunk_ids": [
+      "1321651e80a57b227536edbcf0960184"
+    ],
+    "source_file": "permissive-zones-for-the-centromere-binding-protein-parb-on-the-caulobacter-crescentus-chromosome.pdf",
+    "section": "INTRODUCTION",
+    "question_type": "factual",
+    "id": 17
+  },
+  {
+    "question": "How does TAF6 d differ from the full-length TAF6 in terms of its interactions with other TFIID subunits?",
+    "expected_answer": "TAF6 d is unable to interact with TAF9, but retains interactions with other TFIID subunits.",
+    "relevant_chunk_ids": [
+      "9e0fb3b25e2e45887b4bdaaab93e13ee"
+    ],
+    "source_file": "taf6delta-controls-apoptosis-and-gene-expression-in-the-absence-of-p53.pdf",
+    "section": "Introduction",
+    "question_type": "comparative",
+    "id": 18
+  }
+]

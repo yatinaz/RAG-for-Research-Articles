@@ -1,0 +1,1652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>How the RAG Chunking Pipeline Works — Interactive Course</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ====== DESIGN TOKENS ====== */
+:root {
+  --bg-warm: #F8F5F0;
+  --bg-warm-alt: #F0EBE3;
+  --bg-dark: #1E1E2E;
+  --accent: #C84B31;
+  --accent-hover: #A83C24;
+  --accent-light: #FBF0ED;
+  --accent-border: #EAC5BA;
+  --text-primary: #1A1714;
+  --text-secondary: #5C4F46;
+  --text-muted: #9E8F85;
+  --border: #DDD5CA;
+  --border-strong: #C8BCB0;
+  --code-bg: #1E1E2E;
+  --code-text: #CDD6F4;
+  --code-keyword: #CBA6F7;
+  --code-string: #A6E3A1;
+  --code-function: #89B4FA;
+  --code-comment: #585B70;
+  --code-number: #FAB387;
+  --code-class: #F38BA8;
+  --code-decorator: #F9E2AF;
+  --font-display: 'Bricolage Grotesque', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;--s7:48px;--s8:64px;--s9:96px;
+  --shadow-sm: 0 1px 3px rgba(26,23,20,0.07),0 1px 2px rgba(26,23,20,0.05);
+  --shadow-md: 0 4px 16px rgba(26,23,20,0.09),0 2px 6px rgba(26,23,20,0.05);
+  --shadow-lg: 0 8px 32px rgba(26,23,20,0.11),0 4px 12px rgba(26,23,20,0.07);
+  --r-sm:6px;--r-md:12px;--r-lg:20px;--r-pill:999px;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-snap-type:y proximity;scroll-behavior:smooth;}
+body{font-family:var(--font-body);color:var(--text-primary);background:var(--bg-warm);line-height:1.65;overflow-x:hidden;}
+
+/* ====== TOP NAV ====== */
+.top-nav{position:fixed;top:0;left:0;right:0;z-index:200;background:rgba(248,245,240,0.93);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:0 var(--s6);height:56px;display:flex;align-items:center;gap:var(--s5);}
+.nav-brand{font-family:var(--font-display);font-weight:700;font-size:14px;color:var(--text-primary);white-space:nowrap;flex-shrink:0;}
+.nav-brand span{color:var(--accent);}
+.nav-modules{display:flex;gap:var(--s2);flex:1;justify-content:center;}
+.nav-dot{width:8px;height:8px;border-radius:50%;background:var(--border-strong);cursor:pointer;transition:all 0.25s;border:none;padding:0;display:block;}
+.nav-dot.active{background:var(--accent);transform:scale(1.45);}
+.nav-dot:hover{background:var(--accent-hover);transform:scale(1.3);}
+.nav-progress-wrap{width:110px;display:flex;align-items:center;gap:var(--s2);flex-shrink:0;}
+.nav-progress-bar{flex:1;height:3px;background:var(--border);border-radius:var(--r-pill);overflow:hidden;}
+.nav-progress-fill{height:100%;background:var(--accent);border-radius:var(--r-pill);width:0%;transition:width 0.4s ease;}
+.nav-progress-label{font-size:11px;color:var(--text-muted);font-weight:500;white-space:nowrap;}
+
+/* ====== MODULES ====== */
+.module{scroll-snap-align:start;min-height:100dvh;min-height:100vh;padding-top:56px;}
+.module:nth-child(odd){background:var(--bg-warm);}
+.module:nth-child(even){background:var(--bg-warm-alt);}
+.module-header{max-width:820px;margin:0 auto;padding:var(--s8) var(--s6) var(--s6);text-align:center;}
+.module-num{display:inline-block;font-family:var(--font-mono);font-size:11px;font-weight:500;letter-spacing:0.12em;color:var(--accent);background:var(--accent-light);border:1px solid var(--accent-border);padding:3px 10px;border-radius:var(--r-pill);margin-bottom:var(--s4);}
+.module-title{font-family:var(--font-display);font-size:clamp(2rem,5vw,3.25rem);font-weight:800;line-height:1.1;color:var(--text-primary);margin-bottom:var(--s4);letter-spacing:-0.02em;}
+.module-subtitle{font-size:1.075rem;color:var(--text-secondary);max-width:600px;margin:0 auto;}
+.screen{max-width:900px;margin:0 auto;padding:var(--s5) var(--s6) var(--s7);}
+
+/* ====== TYPOGRAPHY ====== */
+h2{font-family:var(--font-display);font-size:clamp(1.4rem,3vw,1.875rem);font-weight:700;line-height:1.2;letter-spacing:-0.01em;color:var(--text-primary);margin-bottom:var(--s4);}
+h3{font-family:var(--font-display);font-size:1.1rem;font-weight:700;color:var(--text-primary);margin-bottom:var(--s3);}
+p{color:var(--text-secondary);margin-bottom:var(--s4);font-size:1rem;}
+p:last-child{margin-bottom:0;}
+strong{color:var(--text-primary);font-weight:600;}
+
+/* ====== CARDS ====== */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--s4);margin:var(--s5) 0;}
+.card{background:white;border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--s5);box-shadow:var(--shadow-sm);transition:transform 0.2s,box-shadow 0.2s;}
+.card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);}
+.card-icon{font-size:1.75rem;margin-bottom:var(--s3);display:block;}
+.card-title{font-family:var(--font-display);font-weight:700;font-size:1rem;color:var(--text-primary);margin-bottom:var(--s2);}
+.card-body{font-size:0.9rem;color:var(--text-secondary);margin:0;}
+
+/* ====== CALLOUTS ====== */
+.callout{border-left:4px solid var(--accent);background:var(--accent-light);border-radius:0 var(--r-md) var(--r-md) 0;padding:var(--s4) var(--s5);margin:var(--s5) 0;}
+.callout-label{font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent);margin-bottom:var(--s2);}
+.callout p{color:var(--text-primary);margin:0;font-size:0.9375rem;}
+.callout.blue{border-left-color:#4A90D9;background:#EEF4FD;}
+.callout.blue .callout-label{color:#2C6DAA;}
+.callout.green{border-left-color:#3A9B6A;background:#EDF7F2;}
+.callout.green .callout-label{color:#2A7050;}
+
+/* ====== CODE ↔ ENGLISH TRANSLATION ====== */
+.translation{display:grid;grid-template-columns:1fr 1fr;border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-lg);margin:var(--s5) 0;}
+.trans-code{background:var(--code-bg);}
+.trans-eng{background:white;border:1px solid var(--border);border-left:none;}
+.trans-header{font-family:var(--font-mono);font-size:10px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;padding:var(--s3) var(--s5);border-bottom:1px solid rgba(255,255,255,0.07);}
+.trans-code .trans-header{color:var(--code-comment);}
+.trans-eng .trans-header{color:var(--text-muted);border-bottom-color:var(--border);}
+pre{font-family:var(--font-mono);font-size:0.8rem;line-height:1.72;white-space:pre-wrap;word-break:break-word;color:var(--code-text);padding:var(--s4) var(--s5);}
+.trans-eng ol{padding:var(--s4) var(--s5) var(--s4) calc(var(--s5) + 16px);}
+.trans-eng li{font-size:0.875rem;color:var(--text-secondary);margin-bottom:var(--s3);line-height:1.55;}
+.trans-eng li strong{color:var(--text-primary);}
+
+/* Syntax colors */
+.kw{color:var(--code-keyword);}
+.fn{color:var(--code-function);}
+.st{color:var(--code-string);}
+.cm{color:var(--code-comment);font-style:italic;}
+.nu{color:var(--code-number);}
+.cl{color:var(--code-class);}
+.dc{color:var(--code-decorator);}
+
+/* ====== GROUP CHAT ====== */
+.chat-container{max-width:600px;margin:var(--s5) auto;display:flex;flex-direction:column;gap:var(--s3);}
+.chat-msg{display:flex;align-items:flex-end;gap:var(--s3);opacity:0;transform:translateY(10px);transition:opacity 0.4s ease,transform 0.4s ease;}
+.chat-msg.visible{opacity:1;transform:translateY(0);}
+.chat-msg.sent{flex-direction:row-reverse;}
+.chat-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;background:var(--bg-warm-alt);border:1px solid var(--border);}
+.chat-bubble-wrap{max-width:78%;}
+.chat-sender{font-size:10px;font-weight:600;color:var(--text-muted);margin-bottom:3px;padding:0 var(--s3);}
+.chat-msg.sent .chat-sender{text-align:right;}
+.chat-bubble{display:inline-block;padding:var(--s3) var(--s4);border-radius:18px;font-size:0.875rem;line-height:1.5;}
+.chat-msg:not(.sent) .chat-bubble{background:white;border:1px solid var(--border);border-bottom-left-radius:4px;color:var(--text-primary);box-shadow:var(--shadow-sm);}
+.chat-msg.sent .chat-bubble{background:var(--accent);color:white;border-bottom-right-radius:4px;}
+.chat-mono{font-family:var(--font-mono);font-size:0.78rem;background:rgba(0,0,0,0.08);padding:2px 6px;border-radius:4px;}
+.chat-msg.sent .chat-mono{background:rgba(255,255,255,0.2);}
+
+/* ====== MESSAGE FLOW ====== */
+.flow-diagram{display:flex;align-items:center;justify-content:center;gap:0;margin:var(--s5) 0;flex-wrap:wrap;row-gap:var(--s3);}
+.flow-node{background:white;border:2px solid var(--border);border-radius:var(--r-md);padding:var(--s3) var(--s4);text-align:center;min-width:90px;box-shadow:var(--shadow-sm);transition:all 0.3s;}
+.flow-node.lit{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-border);}
+.flow-node-icon{font-size:1.35rem;display:block;margin-bottom:3px;}
+.flow-node-label{font-size:0.72rem;font-weight:700;color:var(--text-primary);}
+.flow-node-sub{font-size:0.62rem;color:var(--text-muted);margin-top:2px;}
+.flow-arrow{display:flex;align-items:center;padding:0 4px;color:var(--text-muted);font-size:1.1rem;transition:color 0.3s;flex-shrink:0;}
+.flow-arrow.lit{color:var(--accent);}
+.flow-desc{text-align:center;font-size:0.9rem;color:var(--text-secondary);min-height:44px;margin:var(--s3) 0;transition:all 0.3s;padding:0 var(--s4);}
+.flow-controls{display:flex;justify-content:center;gap:var(--s3);margin-top:var(--s3);}
+
+/* ====== BUTTONS ====== */
+.btn{background:var(--accent);color:white;border:none;padding:var(--s3) var(--s5);border-radius:var(--r-pill);font-family:var(--font-body);font-size:0.875rem;font-weight:600;cursor:pointer;transition:background 0.2s,transform 0.15s;}
+.btn:hover{background:var(--accent-hover);transform:translateY(-1px);}
+.btn:active{transform:translateY(0);}
+.btn-ghost{background:transparent;color:var(--text-secondary);border:1.5px solid var(--border);}
+.btn-ghost:hover{background:var(--bg-warm-alt);transform:translateY(-1px);}
+
+/* ====== QUIZ ====== */
+.quiz-section{background:white;border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--s6);margin:var(--s5) var(--s6);max-width:860px;margin-left:auto;margin-right:auto;box-shadow:var(--shadow-md);}
+.quiz-header{display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s5);padding-bottom:var(--s4);border-bottom:1px solid var(--border);}
+.quiz-icon{font-size:1.5rem;}
+.quiz-title{font-family:var(--font-display);font-size:1.1rem;font-weight:700;}
+.quiz-subtitle{font-size:0.8rem;color:var(--text-muted);}
+.quiz-question{margin-bottom:var(--s6);}
+.quiz-question:last-child{margin-bottom:0;}
+.quiz-q{font-weight:600;color:var(--text-primary);font-size:0.9375rem;margin-bottom:var(--s4);line-height:1.5;}
+.quiz-options{display:grid;gap:var(--s2);}
+.quiz-option{text-align:left;background:var(--bg-warm);border:1.5px solid var(--border);border-radius:var(--r-md);padding:var(--s3) var(--s4);font-family:var(--font-body);font-size:0.875rem;color:var(--text-primary);cursor:pointer;transition:all 0.2s;line-height:1.5;width:100%;}
+.quiz-option:hover:not(:disabled){border-color:var(--accent);background:var(--accent-light);}
+.quiz-option.correct{background:#EDF7F2;border-color:#3A9B6A;color:#1E5C3E;}
+.quiz-option.wrong{background:#FEF0EE;border-color:#C84B31;color:#7A2B1E;}
+.quiz-option.show-correct{background:#EDF7F2;border-color:#3A9B6A;color:#1E5C3E;border-style:dashed;}
+.quiz-option:disabled{cursor:default;}
+.quiz-feedback{margin-top:var(--s3);padding:var(--s3) var(--s4);border-radius:var(--r-md);font-size:0.875rem;line-height:1.55;display:none;}
+.quiz-feedback.correct{background:#EDF7F2;color:#1E5C3E;border:1px solid #3A9B6A;}
+.quiz-feedback.wrong{background:#FEF0EE;color:#7A2B1E;border:1px solid #C84B31;}
+
+/* ====== TOOLTIPS ====== */
+.term{border-bottom:1.5px dashed var(--accent);cursor:pointer;color:inherit;transition:color 0.15s;}
+.term:hover{color:var(--accent);}
+#global-tooltip{position:fixed;z-index:9999;background:#1A1714;color:#F0EBE3;padding:var(--s3) var(--s4);border-radius:var(--r-md);font-size:0.8rem;line-height:1.55;max-width:260px;pointer-events:none;opacity:0;transition:opacity 0.15s;box-shadow:var(--shadow-lg);}
+#global-tooltip.visible{opacity:1;}
+
+/* ====== ARCHITECTURE DIAGRAM ====== */
+.arch-diagram{background:var(--code-bg);border-radius:var(--r-lg);padding:var(--s6);margin:var(--s5) 0;overflow-x:auto;}
+.arch-row{display:flex;align-items:center;justify-content:center;gap:var(--s3);margin:var(--s3) 0;flex-wrap:wrap;}
+.arch-node{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.13);border-radius:var(--r-md);padding:var(--s3) var(--s4);text-align:center;min-width:100px;transition:all 0.2s;}
+.arch-node:hover{background:rgba(255,255,255,0.11);border-color:var(--accent);}
+.arch-node-icon{font-size:1.2rem;display:block;margin-bottom:3px;}
+.arch-node-label{font-size:0.7rem;font-weight:700;color:#CDD6F4;}
+.arch-node-sub{font-size:0.6rem;color:#585B70;margin-top:2px;}
+.arch-node.hl{border-color:var(--accent);background:rgba(200,75,49,0.14);}
+.arch-arrow{color:#585B70;font-size:1rem;flex-shrink:0;}
+.arch-label{text-align:center;font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#585B70;margin:var(--s4) 0 var(--s2);}
+.arch-divider{border:none;border-top:1px solid rgba(255,255,255,0.07);margin:var(--s4) 0;}
+
+/* ====== SLIDING WINDOW VIZ ====== */
+.window-viz{margin:var(--s5) 0;}
+.sentence-track{display:flex;gap:5px;margin-bottom:var(--s4);flex-wrap:wrap;}
+.sent-box{width:40px;height:40px;border-radius:var(--r-sm);background:var(--bg-warm-alt);border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:600;color:var(--text-muted);transition:all 0.35s;font-family:var(--font-mono);}
+.sent-box.in-win{background:var(--accent-light);border-color:var(--accent);color:var(--accent);}
+.sent-box.overlap{background:#EEF4FD;border-color:#4A90D9;color:#2C6DAA;}
+.window-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s3);margin:var(--s4) 0;}
+.window-stat{background:white;border:1px solid var(--border);border-radius:var(--r-md);padding:var(--s3) var(--s4);text-align:center;}
+.window-stat-val{font-family:var(--font-mono);font-size:1.2rem;font-weight:700;color:var(--accent);}
+.window-stat-label{font-size:0.72rem;color:var(--text-muted);margin-top:2px;}
+
+/* ====== SIGNAL CARDS ====== */
+.signal-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s4);margin:var(--s5) 0;}
+.signal-card{background:white;border:1.5px solid var(--border);border-radius:var(--r-lg);padding:var(--s5);text-align:center;box-shadow:var(--shadow-sm);transition:all 0.25s;}
+.signal-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-md);border-color:var(--accent);}
+.signal-badge{display:inline-block;background:var(--accent);color:white;font-size:0.68rem;font-weight:700;letter-spacing:0.07em;padding:2px 10px;border-radius:var(--r-pill);margin-bottom:var(--s3);}
+.signal-icon{font-size:1.75rem;margin-bottom:var(--s3);display:block;}
+.signal-name{font-family:var(--font-display);font-weight:700;font-size:0.975rem;margin-bottom:var(--s2);color:var(--text-primary);}
+.signal-desc{font-size:0.85rem;color:var(--text-secondary);}
+
+/* ====== STEP CARDS ====== */
+.steps{display:flex;flex-direction:column;gap:var(--s4);margin:var(--s5) 0;}
+.step-card{display:flex;gap:var(--s4);align-items:flex-start;background:white;border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--s4) var(--s5);box-shadow:var(--shadow-sm);opacity:0;transform:translateX(-14px);transition:opacity 0.4s,transform 0.4s;}
+.step-card.visible{opacity:1;transform:translateX(0);}
+.step-num{width:30px;height:30px;background:var(--accent);color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.825rem;flex-shrink:0;}
+.step-content h3{font-size:0.975rem;margin-bottom:var(--s2);}
+.step-content p{font-size:0.875rem;margin:0;}
+
+/* ====== HERO STATS ====== */
+.hero-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s4);margin:var(--s6) 0;}
+.hero-stat{text-align:center;background:white;border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--s4);box-shadow:var(--shadow-sm);}
+.hero-stat-val{font-family:var(--font-display);font-size:1.75rem;font-weight:800;color:var(--accent);line-height:1;}
+.hero-stat-label{font-size:0.72rem;color:var(--text-muted);margin-top:var(--s2);}
+
+/* ====== MISC ====== */
+.divider{border:none;border-top:1px solid var(--border);margin:var(--s7) 0;}
+.fade-up{opacity:0;transform:translateY(16px);transition:opacity 0.5s ease,transform 0.5s ease;}
+.fade-up.visible{opacity:1;transform:translateY(0);}
+.tag{display:inline-block;background:var(--bg-warm-alt);border:1px solid var(--border);padding:2px 10px;border-radius:var(--r-pill);font-size:0.78rem;font-weight:600;color:var(--text-secondary);font-family:var(--font-mono);}
+.flags-table{width:100%;border-collapse:collapse;background:white;border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-sm);margin:var(--s5) 0;}
+.flags-table th{background:var(--bg-warm-alt);padding:var(--s3) var(--s4);text-align:left;font-size:0.8rem;font-weight:700;color:var(--text-secondary);border-bottom:1px solid var(--border);}
+.flags-table td{padding:var(--s3) var(--s4);font-size:0.875rem;color:var(--text-secondary);border-bottom:1px solid var(--border);vertical-align:top;}
+.flags-table tr:last-child td{border-bottom:none;}
+.flag-code{font-family:var(--font-mono);font-size:0.75rem;background:var(--bg-warm-alt);padding:2px 6px;border-radius:var(--r-sm);color:var(--text-primary);}
+.course-footer{background:var(--text-primary);color:rgba(255,255,255,0.45);text-align:center;padding:var(--s7) var(--s6);font-size:0.875rem;}
+.course-footer strong{color:rgba(255,255,255,0.8);}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:var(--r-pill);}
+
+@media(max-width:768px){
+  .module-header{padding:var(--s7) var(--s4) var(--s5);}
+  .screen{padding:var(--s4) var(--s4) var(--s6);}
+  .hero-stats{grid-template-columns:repeat(2,1fr);}
+  .signal-cards{grid-template-columns:1fr;}
+  .translation{grid-template-columns:1fr;}
+  .trans-eng{border-left:1px solid var(--border);}
+  .nav-progress-wrap{display:none;}
+  .window-stats{grid-template-columns:1fr 1fr;}
+  .quiz-section{margin:var(--s4) var(--s4);}
+}
+</style>
+</head>
+<body>
+
+<!-- ====== TOP NAV ====== -->
+<nav class="top-nav">
+  <div class="nav-brand">RAG <span>Chunking</span> Pipeline</div>
+  <div class="nav-modules" id="navDots"></div>
+  <div class="nav-progress-wrap">
+    <div class="nav-progress-bar"><div class="nav-progress-fill" id="progressFill"></div></div>
+    <span class="nav-progress-label" id="progressLabel">1 / 6</span>
+  </div>
+</nav>
+
+<!-- ====== MODULE 1: THE BIG PICTURE ====== -->
+<section class="module" id="m1">
+  <div class="module-header">
+    <div class="module-num">MODULE 01</div>
+    <h1 class="module-title">The Machine Behind<br>the Search</h1>
+    <p class="module-subtitle">What this pipeline does, why it exists, and how it turns academic PDFs into something AI can actually search.</p>
+  </div>
+
+  <div class="screen">
+    <h2>Meet the pipeline</h2>
+    <p>Imagine you have six <strong>dense academic research papers</strong> as PDF files. You want to ask an AI: <em>"What statistical methods did these papers use?"</em> — and get a precise, sourced answer.</p>
+    <p>The problem: AI models can't read an entire 15-page paper in one go. They need text fed to them in <strong>digestible pieces</strong>. This pipeline is the machine that creates those pieces.</p>
+
+    <div class="hero-stats">
+      <div class="hero-stat"><div class="hero-stat-val">6</div><div class="hero-stat-label">PDFs processed</div></div>
+      <div class="hero-stat"><div class="hero-stat-val">282</div><div class="hero-stat-label">chunks produced</div></div>
+      <div class="hero-stat"><div class="hero-stat-val">~380</div><div class="hero-stat-label">tokens per chunk</div></div>
+      <div class="hero-stat"><div class="hero-stat-val">0</div><div class="hero-stat-label">quality flags</div></div>
+    </div>
+
+    <div class="callout">
+      <div class="callout-label">✦ Aha! Moment</div>
+      <p>Think of this like a <strong>librarian who pre-reads every book</strong> and writes summary index cards — one card per paragraph. When you ask a question, the AI searches the cards first, then reads only the relevant pages. This is called <span class="term" data-tip="RAG stands for Retrieval-Augmented Generation. Instead of asking an AI to memorize all your documents, you store them in a searchable database and 'retrieve' only the relevant pieces before generating an answer. It's how AI chatbots can answer questions about your specific documents.">RAG</span>.</p>
+    </div>
+  </div>
+
+  <div class="screen">
+    <h2>What "RAG" actually means</h2>
+    <p>Without RAG, an AI only knows what it was trained on — not your specific papers. RAG has three steps:</p>
+    <div class="steps" id="ragSteps">
+      <div class="step-card">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <h3>Chunk — break documents into pieces</h3>
+          <p>Split each PDF into small, overlapping text segments (~380 <span class="term" data-tip="Tokens are the units an AI model reads. Roughly 1 token = 0.75 English words. 'The cat sat' is about 4 tokens. Models have a limit on how many tokens they can process at once — which is why we can't just paste in an entire 15-page paper.">tokens</span> each). That's what this pipeline does.</p>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <h3>Embed — give each chunk a numeric fingerprint</h3>
+          <p>An <span class="term" data-tip="Embedding models convert text into a list of numbers (a 'vector') that captures the text's meaning. Chunks with similar meanings end up with similar numbers. This is how semantic search works — searching by meaning, not just keywords.">embedding model</span> converts each chunk into a list of numbers that captures its meaning. These numbers are stored in a <span class="term" data-tip="A vector database is optimized for storing and searching 'vectors' — numeric representations of text. When you search, your question is also converted to a vector and the database finds chunks with the most similar vectors. Examples: Pinecone, Chroma, Weaviate.">vector database</span>.</p>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <h3>Retrieve &amp; Generate — answer the question</h3>
+          <p>When a user asks a question, the most relevant chunks are fetched and handed to a <span class="term" data-tip="LLM stands for Large Language Model — the AI that generates text responses. Examples: GPT-4, Claude, Llama. In a RAG pipeline, the LLM doesn't need to remember the documents. It just receives the relevant chunks as context and generates an answer.">LLM</span> to produce a grounded answer.</p>
+        </div>
+      </div>
+    </div>
+    <div class="callout blue">
+      <div class="callout-label">Your role in the pipeline</div>
+      <p>This project handles <strong>step 1 only</strong> — and it handles it very well. The output (a <span class="term" data-tip="JSONL stands for JSON Lines. It's a text file where each line is a valid JSON object. Perfect for storing structured data like chunks because you can read it line-by-line without loading the entire file.">JSONL</span> file of chunks) is ready to be loaded directly into any vector database.</p>
+    </div>
+  </div>
+
+  <div class="screen">
+    <h2>The pipeline in action</h2>
+    <p>Here's how the components talk to each other when you run: <span class="tag">python run.py --input ./pdfs --output chunks.jsonl</span></p>
+
+    <div class="chat-container" id="chat1">
+      <div class="chat-msg sent">
+        <div class="chat-avatar">🖥️</div>
+        <div class="chat-bubble-wrap">
+          <div class="chat-sender">You (terminal)</div>
+          <div class="chat-bubble"><span class="chat-mono">python run.py --input ./pdfs --output chunks.jsonl</span></div>
+        </div>
+      </div>
+      <div class="chat-msg">
+        <div class="chat-avatar">📋</div>
+        <div class="chat-bubble-wrap">
+          <div class="chat-sender">run.py</div>
+          <div class="chat-bubble">Got it! Configuring chunker with target=380 tokens, max=512, overlap=60. Handing off to chunker.py...</div>
+        </div>
+      </div>
+      <div class="chat-msg">
+        <div class="chat-avatar">🧠</div>
+        <div class="chat-bubble-wrap">
+          <div class="chat-sender">chunker.py</div>
+          <div class="chat-bubble">Opening paper 1 of 6: <span class="chat-mono">1471-2199-11-10.pdf</span></div>
+        </div>
+      </div>
+      <div class="chat-msg">
+        <div class="chat-avatar">🔍</div>
+        <div class="chat-bubble-wrap">
+          <div class="chat-sender">pdfplumber</div>
+          <div class="chat-bubble">12 pages scanned. Body font size: 9.8pt. Found 2 running headers to strip. Two-column layout detected.</div>
+        </div>
+      </div>
+      <div class="chat-msg">
+        <div class="chat-avatar">🧠</div>
+        <div class="chat-bubble-wrap">
+          <div class="chat-sender">chunker.py</div>
+          <div class="chat-bubble">Detected 8 section headings. Splitting into sentence-bounded chunks... 47 chunks ✓</div>
+        </div>
+      </div>
+      <div class="chat-msg">
+        <div class="chat-avatar">📋</div>
+        <div class="chat-bubble-wrap">
+          <div class="chat-sender">run.py</div>
+          <div class="chat-bubble">All 6 papers done. Writing to chunks.jsonl...</div>
+        </div>
+      </div>
+      <div class="chat-msg">
+        <div class="chat-avatar">✅</div>
+        <div class="chat-bubble-wrap">
+          <div class="chat-sender">Output</div>
+          <div class="chat-bubble">282 chunks written. Mean: 372.8 tokens. Median: 382. Quality: <strong>OK — no issues detected.</strong></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUIZ 1 -->
+  <div class="quiz-section">
+    <div class="quiz-header">
+      <span class="quiz-icon">🎯</span>
+      <div>
+        <div class="quiz-title">Module 1 Check-In</div>
+        <div class="quiz-subtitle">Apply what you just learned — these test understanding, not memorization.</div>
+      </div>
+    </div>
+
+    <div class="quiz-question" id="qq1-1">
+      <p class="quiz-q">Your AI chatbot keeps giving vague answers about a paper's methods section, even though you know the methods are detailed. What part of the RAG pipeline is most likely the culprit?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false"
+          data-err="Not quite — the LLM's intelligence isn't the issue here. It's about whether the right content is being retrieved and passed to the LLM in the first place.">
+          A) The LLM isn't smart enough to understand scientific methods</button>
+        <button class="quiz-option" data-correct="true"
+          data-ok="Exactly! If the methods section was chunked poorly — perhaps its text got mixed with a caption, or the heading wasn't detected so its content was lumped into a different section — the right chunks will never surface during retrieval. The LLM can only answer from what it's given.">
+          B) The chunking — methods text may be in the wrong section or mixed with noise</button>
+        <button class="quiz-option" data-correct="false"
+          data-err="Not quite — the embedding model just converts text to numbers. It doesn't 'understand' or filter content. The quality of what gets embedded is determined by the chunker.">
+          C) The embedding model doesn't handle scientific terminology</button>
+        <button class="quiz-option" data-correct="false"
+          data-err="The vector database stores and retrieves — it doesn't affect which content was captured from the PDF in the first place.">
+          D) The vector database is too slow</button>
+      </div>
+      <div class="quiz-feedback" id="qf1-1"></div>
+    </div>
+
+    <div class="quiz-question" id="qq1-2">
+      <p class="quiz-q">A colleague hands you a <code style="font-family:var(--font-mono);font-size:0.85em;background:var(--bg-warm-alt);padding:2px 6px;border-radius:4px;">chunks.jsonl</code> file with 300 chunks. What's the most useful next step if you want to build a "question-answering over papers" feature?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false"
+          data-err="That's for the PDF producer, not you. The chunks.jsonl is already the processed output — the hard work is done.">
+          A) Manually read all 300 chunks to check quality</button>
+        <button class="quiz-option" data-correct="false"
+          data-err="Chunks aren't for humans to read directly — they're for machines. You'd lose the structured metadata (section, page numbers, chunk IDs) if you merged them.">
+          B) Merge all chunks into one document for easier reading</button>
+        <button class="quiz-option" data-correct="true"
+          data-ok="Correct! chunks.jsonl is designed to be loaded directly into a vector database. Each chunk gets embedded and stored. Then when a user asks a question, the most relevant chunks are retrieved and sent to an LLM. The chunking pipeline has done its job.">
+          C) Load each chunk into a vector database with its metadata</button>
+        <button class="quiz-option" data-correct="false"
+          data-err="Converting back to PDF defeats the entire purpose. chunks.jsonl is a structured, machine-readable format ready for the next stage of RAG.">
+          D) Convert the JSONL back into PDF format</button>
+      </div>
+      <div class="quiz-feedback" id="qf1-2"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== MODULE 2: MEET THE FILES ====== -->
+<section class="module" id="m2">
+  <div class="module-header">
+    <div class="module-num">MODULE 02</div>
+    <h1 class="module-title">Meet the Cast</h1>
+    <p class="module-subtitle">Two files, two jobs — and a data structure that holds everything together.</p>
+  </div>
+
+  <div class="screen">
+    <h2>Two files, two responsibilities</h2>
+    <div class="cards">
+      <div class="card">
+        <span class="card-icon">📋</span>
+        <div class="card-title">run.py — The Front Door</div>
+        <p class="card-body">The <span class="term" data-tip="CLI stands for Command Line Interface — the text-based interface where you type commands like 'python run.py'. When you use a CLI tool, you interact with it by typing commands and flags in a terminal window.">CLI</span> entry point. Reads your flags (<code style="font-family:var(--font-mono);font-size:0.8em;">--input</code>, <code style="font-family:var(--font-mono);font-size:0.8em;">--max-tokens</code>...), builds a config, calls the chunker, prints results. Think of it as the <em>dashboard</em> — you never need to modify it unless you want new controls.</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">🧠</span>
+        <div class="card-title">chunker.py — The Brain</div>
+        <p class="card-body">The importable library with all the logic: PDF extraction, heading detection, sentence splitting, chunk assembly. It knows nothing about your terminal — it just takes a PDF path and yields <code style="font-family:var(--font-mono);font-size:0.8em;">Chunk</code> objects. This is the file you'd study, extend, and import.</p>
+      </div>
+    </div>
+
+    <div class="callout blue">
+      <div class="callout-label">Key insight for AI steering</div>
+      <p>When you tell an AI coding agent <em>"add a new metadata field to every chunk"</em>, specify <strong>chunker.py, the Chunk dataclass</strong>. When you say <em>"add a --verbose flag"</em>, specify <strong>run.py, the argument parser</strong>. Knowing which file does what makes your instructions precise and unambiguous.</p>
+    </div>
+  </div>
+
+  <div class="screen">
+    <h2>The Chunk: a product label for text</h2>
+    <p>Every piece of text the pipeline produces is wrapped in a <span class="term" data-tip="A dataclass is a Python shortcut for creating a class (a template for objects) that mostly holds data. You list the fields and their types, and Python automatically generates the setup code. It's like filling out a form template — you just define what fields the form has.">dataclass</span> called <code style="font-family:var(--font-mono);font-size:0.85em;">Chunk</code>. Think of it like a product label attached to every piece of text — it carries not just the text but everything you'd want to know about it: where it came from, which page, which section.</p>
+
+    <div class="translation">
+      <div class="trans-code">
+        <div class="trans-header">chunker.py — Chunk dataclass</div>
+        <pre><span class="dc">@dataclass</span>
+<span class="kw">class</span> <span class="cl">Chunk</span>:
+    chunk_id: <span class="cl">str</span>
+    text: <span class="cl">str</span>
+    source_file: <span class="cl">str</span>
+    page_start: <span class="cl">int</span>
+    page_end: <span class="cl">int</span>
+    section: <span class="cl">str</span>
+    chunk_type: <span class="cl">str</span>  <span class="cm"># "text" | "table" | "figure"</span>
+    chunk_index: <span class="cl">int</span>
+    token_count: <span class="cl">int</span>
+
+    <span class="kw">def</span> <span class="fn">to_dict</span>(self) -&gt; <span class="cl">dict</span>:
+        <span class="kw">return</span> <span class="fn">asdict</span>(self)</pre>
+      </div>
+      <div class="trans-eng">
+        <div class="trans-header">Plain English</div>
+        <ol>
+          <li><strong>@dataclass</strong> — "Python, please auto-build the boring setup code for this data container."</li>
+          <li><strong>chunk_id: str</strong> — A unique fingerprint (MD5 hash) for this chunk. Used to look it up later.</li>
+          <li><strong>text: str</strong> — The actual text content. Always starts with <code style="font-family:var(--font-mono);font-size:0.8em;">[Section: Name]</code>, <code style="font-family:var(--font-mono);font-size:0.8em;">[Table: ...]</code>, or <code style="font-family:var(--font-mono);font-size:0.8em;">[Figure: ...]</code> depending on chunk type.</li>
+          <li><strong>source_file: str</strong> — The PDF filename this chunk came from.</li>
+          <li><strong>page_start / page_end: int</strong> — Which pages the text spans, so you can cite your sources.</li>
+          <li><strong>section: str</strong> — Which section heading this chunk belongs to (e.g. "Methods").</li>
+          <li><strong>chunk_type: str</strong> — What kind of content this chunk holds: <em>"text"</em> for prose, <em>"table"</em> for camelot-extracted table data, or <em>"figure"</em> for a figure caption. Lets you filter by content type during retrieval.</li>
+          <li><strong>chunk_index: int</strong> — The sequential position of this chunk within its source file.</li>
+          <li><strong>token_count: int</strong> — How many tokens the text contains (used to verify the hard max was respected).</li>
+          <li><strong>to_dict()</strong> — Converts this object to a plain Python dictionary, for writing to JSONL.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen">
+    <h2>ChunkingConfig: the control panel</h2>
+    <p>Three numbers control the entire chunking behavior. You set them once and they flow through every decision the pipeline makes:</p>
+    <div class="cards">
+      <div class="card">
+        <span class="card-icon">🎯</span>
+        <div class="card-title">target_tokens = 380</div>
+        <p class="card-body">The <em>soft target</em>. The pipeline tries to fill each chunk to about this size — roughly one dense paragraph from an academic paper. Not a hard limit; the pipeline may stop at a sentence boundary just before hitting this.</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">🛑</span>
+        <div class="card-title">max_tokens = 512</div>
+        <p class="card-body">The <em>hard ceiling</em>. No chunk will ever exceed this. Chosen to match the maximum input size of the <span class="term" data-tip="text-embedding-ada-002 is OpenAI's embedding model, which converts text to a 1536-dimension vector. It has a hard limit of 8191 tokens, but in practice chunks of ~512 tokens work best for retrieval precision.">text-embedding-ada-002</span> model family. Think of it as a maximum box size.</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">🔗</span>
+        <div class="card-title">overlap_tokens = 60</div>
+        <p class="card-body">The <em>context bridge</em>. The last ~1 sentence of each chunk is repeated at the start of the next one, so a topic that spans a chunk boundary isn't lost. About 60 tokens ≈ one short sentence.</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">🧹</span>
+        <div class="card-title">garble_threshold = 0.02</div>
+        <p class="card-body">The <em>figure caption quality gate</em>. PDF text extraction sometimes merges words together without spaces ("thekinasecascade"). The space-to-length ratio of the extracted text is measured; any figure caption scoring below 0.02 is silently dropped rather than added as a garbled chunk.</p>
+      </div>
+    </div>
+    <div class="callout green">
+      <div class="callout-label">Steering tip</div>
+      <p>To get <strong>bigger chunks</strong> (more context per query hit): <span class="tag">--target-tokens 512 --max-tokens 768</span>. For <strong>finer-grained search</strong>: <span class="tag">--target-tokens 200 --max-tokens 300</span>. The defaults are tuned for dense academic text — you may need to adjust for other document types.</p>
+    </div>
+  </div>
+
+  <!-- QUIZ 2 -->
+  <div class="quiz-section">
+    <div class="quiz-header">
+      <span class="quiz-icon">🎯</span>
+      <div>
+        <div class="quiz-title">Module 2 Check-In</div>
+        <div class="quiz-subtitle">Can you apply what you learned about the codebase structure?</div>
+      </div>
+    </div>
+
+    <div class="quiz-question" id="qq2-1">
+      <p class="quiz-q">Your team wants to add a "journal_name" field to every chunk so they can filter by publication later. Which part of the code would you (or your AI coding agent) need to change?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false"
+          data-err="run.py handles CLI flags and calls the chunker — it doesn't define what data a chunk contains. Adding a flag here wouldn't automatically populate a new field.">
+          A) run.py — add a --journal-name flag to the argument parser</button>
+        <button class="quiz-option" data-correct="true"
+          data-ok="Exactly right! The Chunk dataclass in chunker.py defines what fields every chunk carries. Adding 'journal_name: str' there would give every chunk that field. You'd also need to populate it somewhere in process_pdf() — but the definition starts in the dataclass.">
+          B) chunker.py — add journal_name: str to the Chunk dataclass</button>
+        <button class="quiz-option" data-correct="false"
+          data-err="ChunkingConfig controls token sizes (target, max, overlap) — not which metadata fields a chunk carries. It's the settings panel, not the data structure.">
+          C) chunker.py — add journal_name to ChunkingConfig</button>
+        <button class="quiz-option" data-correct="false"
+          data-err="write_jsonl() writes whatever fields are in the Chunk dataclass — it doesn't define the fields itself. You'd still need to change the Chunk dataclass first.">
+          D) chunker.py — modify the write_jsonl() function</button>
+      </div>
+      <div class="quiz-feedback" id="qf2-1"></div>
+    </div>
+
+    <div class="quiz-question" id="qq2-2">
+      <p class="quiz-q">You're processing legal contracts instead of academic papers. Legal clauses are long — you want chunks up to 900 tokens. How would you configure this?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false"
+          data-err="The Chunk dataclass describes the data structure, not the sizing parameters. Changing it wouldn't affect how large chunks get.">
+          A) Edit the Chunk dataclass to accept a larger token_count</button>
+        <button class="quiz-option" data-correct="true"
+          data-ok="Correct! ChunkingConfig is exactly for this. You can pass it to process_pdf() directly in code, or use the CLI flags --target-tokens 750 --max-tokens 900 which run.py maps to ChunkingConfig automatically.">
+          B) Pass ChunkingConfig(target_tokens=750, max_tokens=900) or use CLI flags --target-tokens / --max-tokens</button>
+        <button class="quiz-option" data-correct="false"
+          data-err="Hard-coded values in chunker.py would work, but then your change applies to every run and can't be overridden. The whole point of ChunkingConfig is to make this configurable without touching source code.">
+          C) Find every 512 and 380 in chunker.py and change them to 900</button>
+        <button class="quiz-option" data-correct="false"
+          data-err="That affects diagnostic output — it doesn't change how large the chunks are.">
+          D) Use the --sample flag in run.py</button>
+      </div>
+      <div class="quiz-feedback" id="qf2-2"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== MODULE 3: PDF WRANGLING ====== -->
+<section class="module" id="m3">
+  <div class="module-header">
+    <div class="module-num">MODULE 03</div>
+    <h1 class="module-title">Taming the PDF Beast</h1>
+    <p class="module-subtitle">Why PDFs are a nightmare for text extraction — and how the pipeline beats them.</p>
+  </div>
+
+  <div class="screen">
+    <h2>PDFs aren't really documents</h2>
+    <p>Here's a fact that surprises most people: <strong>a PDF doesn't store text as sentences.</strong> It stores individual characters as drawing instructions — "draw the letter 'T' at position (72, 680), font size 9.8pt, in Arial." There's no paragraph, no sentence, no "this is a heading" concept baked in.</p>
+
+    <div class="callout">
+      <div class="callout-label">The photocopy analogy</div>
+      <p>Imagine someone took a book, photocopied every page, and gave you the stack of images. You can see words, but if you try to select text — you'd just be highlighting pixels. A PDF is like a slightly smarter version of that: it has the character positions, but no higher-level structure. <strong>Structure must be inferred from position, size, and repetition.</strong></p>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <span class="card-icon">📐</span>
+        <div class="card-title">No semantic structure</div>
+        <p class="card-body">No native concept of "paragraph" or "heading." You have to infer these from visual properties like font size, position, and capitalization.</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">📰</span>
+        <div class="card-title">Multi-column layouts</div>
+        <p class="card-body">Most academic journals use two columns. Without detecting this, text from column A and column B get interleaved, producing incoherent sentences.</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">🏷️</span>
+        <div class="card-title">Running headers/footers</div>
+        <p class="card-body">Every page typically repeats the journal name, volume, and page number. Without stripping these, they'd appear as garbage inside your chunks.</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">📊</span>
+        <div class="card-title">Figures and captions</div>
+        <p class="card-body">"Figure 2A shows..." text is visually present but semantically noise for a RAG pipeline focused on the paper's findings.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen">
+    <h2>Two-column detection: reading the room</h2>
+    <p><span class="term" data-tip="pdfplumber is a Python library that extracts words from PDFs with their exact pixel coordinates (x0, y_top), font size, and font name. This makes it possible to understand layout — not just text.">pdfplumber</span> gives us each word's horizontal start position (<code style="font-family:var(--font-mono);font-size:0.85em;">x0</code>). In a two-column paper, words cluster in two distinct zones. The algorithm looks for this pattern:</p>
+
+    <div style="background:white;border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--s5);box-shadow:var(--shadow-sm);margin:var(--s5) 0;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--s4);">
+        <div>
+          <div style="font-size:0.72rem;font-weight:700;color:var(--accent);letter-spacing:0.08em;margin-bottom:var(--s3);text-transform:uppercase;">LEFT COLUMN</div>
+          <div style="background:var(--bg-warm-alt);border-radius:var(--r-md);padding:var(--s4);">
+            <div style="height:8px;background:var(--border);border-radius:4px;margin-bottom:6px;width:88%;"></div>
+            <div style="height:8px;background:var(--border);border-radius:4px;margin-bottom:6px;width:95%;"></div>
+            <div style="height:8px;background:var(--border);border-radius:4px;margin-bottom:6px;width:75%;"></div>
+            <div style="height:12px;background:var(--border-strong);border-radius:4px;margin-bottom:8px;width:60%;"></div>
+            <div style="height:8px;background:var(--border);border-radius:4px;margin-bottom:6px;width:90%;"></div>
+            <div style="height:8px;background:var(--border);border-radius:4px;width:80%;"></div>
+          </div>
+          <div style="margin-top:var(--s3);font-size:0.78rem;color:var(--text-muted);text-align:center;">x0 ≈ 36–72pt (left zone)</div>
+        </div>
+        <div>
+          <div style="font-size:0.72rem;font-weight:700;color:#4A90D9;letter-spacing:0.08em;margin-bottom:var(--s3);text-transform:uppercase;">RIGHT COLUMN</div>
+          <div style="background:var(--bg-warm-alt);border-radius:var(--r-md);padding:var(--s4);">
+            <div style="height:8px;background:var(--border);border-radius:4px;margin-bottom:6px;width:92%;"></div>
+            <div style="height:8px;background:var(--border);border-radius:4px;margin-bottom:6px;width:78%;"></div>
+            <div style="height:8px;background:var(--border);border-radius:4px;margin-bottom:6px;width:98%;"></div>
+            <div style="height:8px;background:var(--border);border-radius:4px;margin-bottom:6px;width:85%;"></div>
+            <div style="height:12px;background:var(--border-strong);border-radius:4px;margin-bottom:8px;width:65%;"></div>
+            <div style="height:8px;background:var(--border);border-radius:4px;width:88%;"></div>
+          </div>
+          <div style="margin-top:var(--s3);font-size:0.78rem;color:var(--text-muted);text-align:center;">x0 ≈ 310–340pt (right zone)</div>
+        </div>
+      </div>
+      <p style="text-align:center;font-size:0.875rem;color:var(--text-secondary);margin-top:var(--s4);margin-bottom:0;">If both zones each have ≥5% of words and the right zone has ≥15% total → two-column detected. Left is read first, then right.</p>
+    </div>
+
+    <div class="translation">
+      <div class="trans-code">
+        <div class="trans-header">chunker.py — _detect_two_column()</div>
+        <pre><span class="kw">def</span> <span class="fn">_detect_two_column</span>(words, page_width):
+    <span class="kw">if not</span> words:
+        <span class="kw">return</span> <span class="kw">False</span>
+    bins = <span class="cl">Counter</span>(<span class="fn">round</span>(w[<span class="st">"x0"</span>] / <span class="nu">10</span>) * <span class="nu">10</span>
+                   <span class="kw">for</span> w <span class="kw">in</span> words)
+    total = <span class="fn">sum</span>(bins.values())
+    right_total = <span class="fn">sum</span>(cnt <span class="kw">for</span> x, cnt
+        <span class="kw">in</span> bins.items()
+        <span class="kw">if</span> x &gt; page_width * <span class="nu">0.40</span>)
+    <span class="kw">if</span> right_total &lt; total * <span class="nu">0.15</span>:
+        <span class="kw">return</span> <span class="kw">False</span>
+    left_peak  = <span class="fn">max</span>((cnt <span class="kw">for</span> x, cnt
+        <span class="kw">in</span> bins.items()
+        <span class="kw">if</span> x &lt; page_width * <span class="nu">0.40</span>),
+        default=<span class="nu">0</span>)
+    right_peak = <span class="fn">max</span>((cnt <span class="kw">for</span> x, cnt
+        <span class="kw">in</span> bins.items()
+        <span class="kw">if</span> x &gt; page_width * <span class="nu">0.40</span>),
+        default=<span class="nu">0</span>)
+    <span class="kw">return</span> (left_peak &gt;= total * <span class="nu">0.05</span>
+            <span class="kw">and</span> right_peak &gt;= total * <span class="nu">0.05</span>)</pre>
+      </div>
+      <div class="trans-eng">
+        <div class="trans-header">Plain English</div>
+        <ol>
+          <li><strong>if not words:</strong> If the page is empty, it's definitely not two-column.</li>
+          <li><strong>bins = Counter(round(x0/10)*10 ...)</strong> Round every word's left-edge position to the nearest 10 points and count how many words start there. We're building a histogram of where words begin horizontally.</li>
+          <li><strong>total</strong> = total word count on this page.</li>
+          <li><strong>right_total</strong> = how many words start in the right 60% of the page. If less than 15% of words are in the right zone, it's single-column — return False.</li>
+          <li><strong>left_peak</strong> = the most common starting position in the left zone (the left column margin).</li>
+          <li><strong>right_peak</strong> = same, but for the right zone (the right column margin).</li>
+          <li><strong>return True</strong> if both peaks each account for ≥5% of all words — confirming two distinct column margins exist.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen">
+    <h2>Table extraction: why pdfplumber isn't enough</h2>
+    <p>Academic tables look simple on screen but are notoriously hard to extract. <span class="term" data-tip="pdfplumber detects tables by finding rectangular regions where text is densely packed. It works by analyzing text position clusters, but it often mistakes abstract blocks, figure areas, or densely-spaced prose for tables — producing false positives.">pdfplumber</span>'s built-in table detector frequently misidentifies abstract blocks or figure areas as tables, and it produces hollow rows with empty cells when borders are missing.</p>
+
+    <div class="callout">
+      <div class="callout-label">The new approach: camelot lattice mode</div>
+      <p><span class="term" data-tip="Camelot is a Python library specifically designed for PDF table extraction. Its 'lattice' mode works by detecting the actual ruled lines (borders) printed on the page, then using those line intersections to identify cells. This makes it much more reliable than position-based heuristics for tables that have visible borders.">Camelot</span> runs a single pass over the entire PDF <em>before</em> page-by-page extraction begins, using <strong>lattice mode</strong> — it detects the actual ruled lines printed on the page and uses their intersections to identify cells. The result is a <code style="font-family:var(--font-mono);font-size:0.8em;">dict[page_number → [rows]]</code> that is consulted when each page is processed.</p>
+    </div>
+
+    <div class="translation">
+      <div class="trans-code">
+        <div class="trans-header">chunker.py — camelot extraction &amp; validation</div>
+        <pre><span class="kw">def</span> <span class="fn">_extract_tables_camelot</span>(pdf_path):
+    <span class="kw">if not</span> _CAMELOT_AVAILABLE:
+        <span class="kw">return</span> {}
+    tables = _camelot.<span class="fn">read_pdf</span>(
+        <span class="fn">str</span>(pdf_path),
+        flavor=<span class="st">"lattice"</span>,
+        pages=<span class="st">"all"</span>)
+    result = {}
+    <span class="kw">for</span> t <span class="kw">in</span> tables:
+        rows = [<span class="fn">list</span>(row) <span class="kw">for</span> row
+                <span class="kw">in</span> t.df.values.tolist()]
+        result.<span class="fn">setdefault</span>(
+            t.page, []).<span class="fn">append</span>(rows)
+    <span class="kw">return</span> result
+
+<span class="kw">def</span> <span class="fn">_is_useful_table</span>(rows):
+    <span class="cm">    # Reject: fewer than 4 non-empty cells</span>
+    <span class="cm">    # Reject: single cell > 200 chars (paragraph mis-detect)</span>
+    <span class="cm">    # Reject: fewer than 2 rows or 2 columns</span>
+    <span class="kw">if not</span> rows <span class="kw">or</span> <span class="fn">len</span>(rows) &lt; <span class="nu">2</span>: <span class="kw">return</span> <span class="kw">False</span>
+    col_count = <span class="fn">max</span>(<span class="fn">len</span>(r) <span class="kw">for</span> r <span class="kw">in</span> rows)
+    <span class="kw">if</span> col_count &lt; <span class="nu">2</span>: <span class="kw">return</span> <span class="kw">False</span>
+    non_empty = [c <span class="kw">for</span> row <span class="kw">in</span> rows
+                 <span class="kw">for</span> c <span class="kw">in</span> row <span class="kw">if</span> c.strip()]
+    <span class="kw">if</span> <span class="fn">len</span>(non_empty) &lt; <span class="nu">4</span>: <span class="kw">return</span> <span class="kw">False</span>
+    <span class="kw">if</span> <span class="fn">any</span>(<span class="fn">len</span>(c) &gt; <span class="nu">200</span> <span class="kw">for</span> c <span class="kw">in</span> non_empty):
+        <span class="kw">return</span> <span class="kw">False</span>
+    <span class="kw">return</span> <span class="kw">True</span></pre>
+      </div>
+      <div class="trans-eng">
+        <div class="trans-header">Plain English</div>
+        <ol>
+          <li><strong>flavor="lattice"</strong> — Use line-intersection detection, not text-position heuristics. Only works on tables that have visible printed borders — which is the common case in academic PDFs.</li>
+          <li><strong>pages="all"</strong> — Process every page in one library call, returning results keyed by page number. More efficient than calling per-page.</li>
+          <li><strong>t.df.values.tolist()</strong> — Camelot stores each table as a pandas DataFrame. We convert it to a plain list-of-lists of strings.</li>
+          <li><strong>_is_useful_table() — fewer than 2 rows/cols:</strong> A 1×1 region is not a table. Likely a text box or figure boundary that camelot mistook for a bordered cell.</li>
+          <li><strong>fewer than 4 non-empty cells:</strong> A nearly-blank extraction — camelot found the border lines but nothing meaningful was inside. Rejected.</li>
+          <li><strong>single cell &gt; 200 characters:</strong> The classic "paragraph in one cell" false positive — pdfplumber sometimes treats an abstract or caption block as a single-cell table. This guard rejects it.</li>
+          <li><strong>return True</strong> — Passed all checks: this is a genuine, useful table. It will be emitted as a <em>chunk_type="table"</em> chunk.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="callout green">
+      <div class="callout-label">Design trade-off: lattice-only</div>
+      <p>Lattice mode only captures tables <em>with visible cell borders</em>. Tables rendered with spacing alone (stream mode) are not extracted. This is a deliberate conservatism: the false-positive rate of stream mode on academic PDFs is high, and a missed table is less harmful than a garbled chunk passed to the embedding model.</p>
+    </div>
+  </div>
+
+  <div class="screen">
+    <h2>The extraction pipeline</h2>
+    <p>From raw PDF to clean text blocks, each PDF page goes through a 6-step process. Click <strong>Next</strong> to step through it:</p>
+
+    <div class="flow-diagram" id="flowDiagram">
+      <div class="flow-node" id="fn0"><div class="flow-node-icon">📄</div><div class="flow-node-label">PDF File</div><div class="flow-node-sub">raw bytes</div></div>
+      <div class="flow-arrow" id="fa0">→</div>
+      <div class="flow-node" id="fn1"><div class="flow-node-icon">🔍</div><div class="flow-node-label">pdfplumber</div><div class="flow-node-sub">word extractor</div></div>
+      <div class="flow-arrow" id="fa1">→</div>
+      <div class="flow-node" id="fn2"><div class="flow-node-icon">📊</div><div class="flow-node-label">Words + Sizes</div><div class="flow-node-sub">x0, top, font</div></div>
+      <div class="flow-arrow" id="fa2">→</div>
+      <div class="flow-node" id="fn3"><div class="flow-node-icon">📐</div><div class="flow-node-label">Line Groups</div><div class="flow-node-sub">words → lines</div></div>
+      <div class="flow-arrow" id="fa3">→</div>
+      <div class="flow-node" id="fn4"><div class="flow-node-icon">✂️</div><div class="flow-node-label">Margin Crop</div><div class="flow-node-sub">drop headers/footers</div></div>
+      <div class="flow-arrow" id="fa4">→</div>
+      <div class="flow-node" id="fn5"><div class="flow-node-icon">🏷️</div><div class="flow-node-label">Clean Blocks</div><div class="flow-node-sub">text + is_heading?</div></div>
+    </div>
+
+    <div class="flow-desc" id="flowDesc">Press <strong>Start</strong> to trace what happens to a single PDF page.</div>
+    <div class="flow-controls">
+      <button class="btn btn-ghost" id="flowPrev" onclick="flowStep(-1)">← Back</button>
+      <button class="btn" id="flowNext" onclick="flowStep(1)">Start →</button>
+    </div>
+  </div>
+
+  <!-- QUIZ 3 -->
+  <div class="quiz-section">
+    <div class="quiz-header">
+      <span class="quiz-icon">🎯</span>
+      <div>
+        <div class="quiz-title">Module 3 Check-In</div>
+        <div class="quiz-subtitle">Debug these real-world PDF extraction scenarios.</div>
+      </div>
+    </div>
+
+    <div class="quiz-question" id="qq3-1">
+      <p class="quiz-q">A researcher processes a two-column immunology paper and finds chunks where sentences jump between unrelated topics mid-paragraph. For example: "The kinase cascade was activated... Cell viability assays showed 87% survival... A 10µM concentration was used..." What likely went wrong?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false"
+          data-err="The sentence splitter works on individual lines of text — the problem here is upstream, before sentences are even split.">
+          A) The sentence splitter is creating false splits on abbreviations</button>
+        <button class="quiz-option" data-correct="true"
+          data-ok="Correct diagnosis! When two-column detection fails, the pipeline processes the full page width as single-column, so words from column 1 and column 2 get interleaved in reading order (by y-position), producing exactly this kind of topic-jumping. You'd check if _detect_two_column() returned False for those pages and why.">
+          B) Two-column detection didn't trigger — text from both columns got interleaved</button>
+        <button class="quiz-option" data-correct="false"
+          data-err="The margin crop affects only the top 13% and bottom 6% of each page. It doesn't affect how columns within the body are handled.">
+          C) The header/footer margin crop is too aggressive</button>
+        <button class="quiz-option" data-correct="false"
+          data-err="The boilerplate stripper only activates when it detects specific section names like 'References' or 'Acknowledgements'. It doesn't affect body text in the Methods or Results sections.">
+          D) The boilerplate stripper is incorrectly activated</button>
+      </div>
+      <div class="quiz-feedback" id="qf3-1"></div>
+    </div>
+
+    <div class="quiz-question" id="qq3-2">
+      <p class="quiz-q">A new batch of papers shows "Genome Research | Vol. 34 | 2024" appearing inside chunks. This string repeats on every page. What should handle this automatically — and what might you check if it's not working?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false"
+          data-err="That's for layout, not for stripping repeated text. Increasing the margin would clip page content, not specifically target running headers.">
+          A) Increase _HEADER_MARGIN_FRAC from 0.13 to 0.20</button>
+        <button class="quiz-option" data-correct="true"
+          data-ok="Exactly! _collect_running_headers() samples the first 10 pages, finds text appearing in the margin zones on ≥3 pages, and adds it to a block-list. If it's not working, check whether the journal name is appearing within the 13% header margin zone — if the text is placed lower, it might be falling into the body zone and not being sampled.">
+          B) The running-header dedup — it blocks text appearing on ≥3 pages in margin zones. Check if the text falls within the 13% header crop zone.</button>
+        <button class="quiz-option" data-correct="false"
+          data-err="_BOILERPLATE_SECTIONS handles section names like 'References' or 'Acknowledgements' at the END of papers. It's not designed for repeated running headers.">
+          C) The _BOILERPLATE_SECTIONS regex should match it</button>
+        <button class="quiz-option" data-correct="false"
+          data-err="_CAPTION_RE handles figure and table captions specifically — not running headers from journal banners.">
+          D) The _CAPTION_RE pattern will strip it</button>
+      </div>
+      <div class="quiz-feedback" id="qf3-2"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== MODULE 4: THE HEADING DETECTIVE ====== -->
+<section class="module" id="m4">
+  <div class="module-header">
+    <div class="module-num">MODULE 04</div>
+    <h1 class="module-title">The Heading Detective</h1>
+    <p class="module-subtitle">How the pipeline finds section boundaries using three overlapping signals — and why it has to be conservative.</p>
+  </div>
+
+  <div class="screen">
+    <h2>Why headings are the skeleton</h2>
+    <p>Without section detection, all text from a paper becomes one giant block under "Introduction." With it, each chunk gets labeled — <code style="font-family:var(--font-mono);font-size:0.85em;">[Section: Methods]</code>, <code style="font-family:var(--font-mono);font-size:0.85em;">[Section: Results]</code>. That prefix <strong>dramatically improves retrieval precision</strong> because the embedding model encodes the section name as part of the chunk's meaning.</p>
+
+    <div class="callout">
+      <div class="callout-label">The locksmith analogy</div>
+      <p>Heading detection is like a locksmith with three keys. If <em>any one key opens the lock</em>, it's a heading. But the locks have many anti-tamper guards — so false positives (treating body text as headings) are aggressively prevented, because a false positive <strong>silently fragments a section into two separate context bubbles</strong>, destroying retrieval quality.</p>
+    </div>
+
+    <div class="signal-cards">
+      <div class="signal-card">
+        <div class="signal-badge">SIGNAL 1</div>
+        <span class="signal-icon">📖</span>
+        <div class="signal-name">Name Recognition</div>
+        <p class="signal-desc">Does the line match a known canonical section name? Abstract, Introduction, Methods, Results, Discussion, Conclusions... If yes — it's a heading. No font analysis needed.</p>
+      </div>
+      <div class="signal-card">
+        <div class="signal-badge">SIGNAL 2</div>
+        <span class="signal-icon">📏</span>
+        <div class="signal-name">Font Size Sleuthing</div>
+        <p class="signal-desc">Is the font ≥1.15× the body size but ≤2× it? 3–8 words? Mostly alphabetic? No trailing comma/colon? These together indicate a sub-heading that Signal 1 didn't catch.</p>
+      </div>
+      <div class="signal-card">
+        <div class="signal-badge">SIGNAL 3</div>
+        <span class="signal-icon">📢</span>
+        <div class="signal-name">ALL-CAPS Shouting</div>
+        <p class="signal-desc">Is every word uppercase, 3–6 words, each word ≥2 characters? Not a DNA primer sequence? Some journals capitalize section headings instead of using larger fonts.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen">
+    <h2>Signal 2 up close: the font-size test</h2>
+    <p>Signal 2 is the most nuanced — it needs to detect enlarged headings while <em>rejecting</em> paper titles (which are also enlarged, just more so).</p>
+
+    <div class="translation">
+      <div class="trans-code">
+        <div class="trans-header">chunker.py — _is_heading(), Signal 2 block</div>
+        <pre><span class="cm">    # Signal 2: font-size enlarged but</span>
+<span class="cm">    # not title-scale (titles are ~2.5x body).</span>
+<span class="cm">    # Upper bound of 2.0x excludes 24pt paper</span>
+<span class="cm">    # titles while keeping 11-14pt headings.</span>
+    <span class="kw">if</span> (
+        body_font_size &gt; <span class="nu">0</span>
+        <span class="kw">and</span> body_font_size * <span class="nu">1.15</span>
+            &lt;= font_size
+            &lt;= body_font_size * <span class="nu">2.0</span>
+        <span class="kw">and</span> <span class="nu">3</span> &lt;= word_count &lt;= <span class="nu">8</span>
+        <span class="kw">and</span> <span class="fn">len</span>(alpha_words)
+            &gt;= word_count * <span class="nu">0.70</span>
+        <span class="kw">and not</span> s.<span class="fn">endswith</span>(
+            (<span class="st">"-"</span>, <span class="st">","</span>, <span class="st">":"</span>, <span class="st">";"</span>))
+        <span class="kw">and not</span> _CONTINUATION_ENDS
+            .<span class="fn">search</span>(s)
+    ):
+        <span class="kw">return</span> <span class="kw">True</span></pre>
+      </div>
+      <div class="trans-eng">
+        <div class="trans-header">Plain English — every condition explained</div>
+        <ol>
+          <li><strong>body_font_size &gt; 0</strong> — We have a valid font size estimate to compare against.</li>
+          <li><strong>body_font * 1.15 ≤ font_size ≤ body_font * 2.0</strong> — The line is at least 15% bigger than body text (larger = louder = probably a heading). But capped at 2× to exclude paper titles, which are typically 2.4–2.5× body size. Without this upper bound, the first author line of a paper would be detected as a heading.</li>
+          <li><strong>3 ≤ word_count ≤ 8</strong> — Real section headings are a phrase, not a single word and not a paragraph. Rejects both "Abstract" (single word — handled by Signal 1) and long body sentences.</li>
+          <li><strong>≥70% alphabetic words</strong> — Rejects lines that are mostly numbers, symbols, or accession codes (e.g., "NCBI GSE12345 table S3").</li>
+          <li><strong>doesn't end with - , : ;</strong> — A line ending mid-phrase is a continuation, not a heading.</li>
+          <li><strong>_CONTINUATION_ENDS.search</strong> — Doesn't end with prepositions like "of", "for", "in" — which would mean the "heading" is actually the first clause of a body sentence.</li>
+          <li><strong>return True</strong> — All conditions passed: this is a section heading.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="callout">
+      <div class="callout-label">✦ Aha! Moment</div>
+      <p>This is <em>defensive programming</em>. Each condition rules out a specific category of false positive that was discovered during testing. The comment "Upper bound of 2.0x excludes 24pt paper titles" tells you exactly what bug was found and how it was fixed. Real engineering leaves these breadcrumbs.</p>
+    </div>
+  </div>
+
+  <div class="screen">
+    <h2>The false positive problem</h2>
+    <p>Academic papers are full of lines that <em>look</em> like headings but aren't. The pipeline has explicit guards for each known class of impostor:</p>
+    <div class="steps" id="guardSteps">
+      <div class="step-card">
+        <div class="step-num">🚫</div>
+        <div class="step-content">
+          <h3>Author/affiliation lines</h3>
+          <p>Pattern: "Jane Doe 1,2" or "Smith J*". Rejected via a <span class="term" data-tip="A regex (regular expression) is a pattern-matching language for text. The pattern \b[A-Z][a-z]+\s+[A-Z][a-z]+[\*\s]+\d matches 'Firstname Lastname digit' — catching author lines like 'Jane Doe 1'.">regex</span> that catches "CapitalizedName CapitalizedName Digit" sequences.</p>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">🚫</div>
+        <div class="step-content">
+          <h3>Journal banner lines</h3>
+          <p>"BMC Genomics", "Open Access", "Research Article", "UC Davis" — all explicitly rejected by a dedicated regex. These often appear at ALL-CAPS or enlarged font size because journals style them prominently.</p>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">🚫</div>
+        <div class="step-content">
+          <h3>DNA/RNA primer sequences</h3>
+          <p>Biology papers often print primer sequences in ALL-CAPS: "ACGTCTAGAACGT". Without a guard, every primer would fire Signal 3. The DNA pattern <code style="font-family:var(--font-mono);font-size:0.8em;">^[ACGTNURYKM...]+$</code> rejects pure nucleotide strings.</p>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">🚫</div>
+        <div class="step-content">
+          <h3>Figure panel labels</h3>
+          <p>Figure panels are often labeled "A B C D" in ALL-CAPS. Signal 3 requires each word to be ≥2 characters — so single-letter labels ("A", "B") can never trigger a false heading.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUIZ 4 -->
+  <div class="quiz-section">
+    <div class="quiz-header">
+      <span class="quiz-icon">🎯</span>
+      <div>
+        <div class="quiz-title">Module 4 Check-In</div>
+        <div class="quiz-subtitle">Debug these heading detection scenarios.</div>
+      </div>
+    </div>
+
+    <div class="quiz-question" id="qq4-1">
+      <p class="quiz-q">Your biology team is processing papers with a "Pathway Analysis" section. The pipeline isn't detecting it as a heading — all its content falls under "Methods" instead. What's the most likely reason and what should you investigate?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false"
+          data-err="Signal 3 requires ALL-CAPS. 'Pathway Analysis' uses title case, so Signal 3 can't fire. But that's not the root cause — Signal 2 might catch it if the font is right.">
+          A) Signal 3 requires ALL-CAPS — 'Pathway Analysis' won't trigger it</button>
+        <button class="quiz-option" data-correct="true"
+          data-ok="Correct! Signal 1 only matches a specific list of canonical section names, and 'Pathway Analysis' is not in that list. Signal 2 might catch it if the font is ≥1.15× body size — but if the journal uses the same font size for sub-headings as for body text, Signal 2 also fails. The fix: add 'Pathway\\s+Analysis' to _SECTION_HEADING_RE, or check the font size of the heading in the PDF.">
+          B) 'Pathway Analysis' is not in the Signal 1 regex list, and Signal 2 may not fire if the font size isn't enlarged</button>
+        <button class="quiz-option" data-correct="false"
+          data-err="The _BOILERPLATE_SECTIONS regex only matches sections that trigger end-of-paper stripping (References, Acknowledgements...). Pathway Analysis wouldn't match it.">
+          C) The boilerplate stripper is incorrectly discarding the heading</button>
+        <button class="quiz-option" data-correct="false"
+          data-err="The author line guard requires a pattern of 'Firstname Lastname Digit'. 'Pathway Analysis' doesn't match that pattern.">
+          D) The author/affiliation guard is incorrectly rejecting it</button>
+      </div>
+      <div class="quiz-feedback" id="qf4-1"></div>
+    </div>
+
+    <div class="quiz-question" id="qq4-2">
+      <p class="quiz-q">Processing older medical PDFs, you find "TABLE 1" and "FIGURE 2A" appearing as detected headings, fragmenting the chunk structure. What's the right fix?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false"
+          data-err="Removing Signal 3 entirely would break detection for journals that use ALL-CAPS section headings (which is a real and common style). The fix should be targeted, not nuclear.">
+          A) Remove Signal 3 (ALL-CAPS detection) entirely</button>
+        <button class="quiz-option" data-correct="false"
+          data-err="Increasing the minimum word count would prevent short captions, but 'TABLE 1' is only 2 words — the issue is recognizing it as a caption type, not raising the word threshold.">
+          B) Increase the minimum ALL-CAPS word count from 3 to 10</button>
+        <button class="quiz-option" data-correct="true"
+          data-ok="Correct! _CAPTION_RE already handles 'Figure 2' and 'Table 2' patterns. If the regex isn't catching 'TABLE 1' (all-caps variant), extending _CAPTION_RE with a case-insensitive flag or adding TABLE/FIGURE patterns would surgically fix this without affecting real headings.">
+          C) Extend _CAPTION_RE to match TABLE/FIGURE patterns, or add it to the pre-Signal guards</button>
+        <button class="quiz-option" data-correct="false"
+          data-err="Switching PDF libraries would lose the font-size metadata that makes Signal 2 work. And the issue is a pattern matching gap, not a library problem.">
+          D) Switch from pdfplumber to a different PDF library</button>
+      </div>
+      <div class="quiz-feedback" id="qf4-2"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== MODULE 5: THE SLICING ENGINE ====== -->
+<section class="module" id="m5">
+  <div class="module-header">
+    <div class="module-num">MODULE 05</div>
+    <h1 class="module-title">The Slicing Engine</h1>
+    <p class="module-subtitle">How text is cut into chunks that are exactly the right size — not too big, not too small, with just enough overlap.</p>
+  </div>
+
+  <div class="screen">
+    <h2>The Goldilocks problem</h2>
+    <p>Why does chunk size matter so much? It's a precision vs. context trade-off:</p>
+    <div class="cards">
+      <div class="card">
+        <span class="card-icon">🔍</span>
+        <div class="card-title">Too small (< 100 tokens)</div>
+        <p class="card-body">High precision — the right chunk is easy to find. But no context: a sentence about a gene mutation with no surrounding explanation is useless as an answer.</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">📚</span>
+        <div class="card-title">Too large (> 1000 tokens)</div>
+        <p class="card-body">Lots of context — but poor precision. "The Methods section" as one chunk means every methods query retrieves the same giant block, regardless of what subsection is relevant.</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">✨</span>
+        <div class="card-title">Just right (300–512 tokens)</div>
+        <p class="card-body">One coherent idea per chunk — a complete experiment description, a full statistical argument, a specific protocol. This is the sweet spot for academic RAG.</p>
+      </div>
+    </div>
+    <div class="callout">
+      <div class="callout-label">Why 512 specifically?</div>
+      <p>The <span class="term" data-tip="cl100k_base is the tokenizer used by OpenAI models including GPT-4 and text-embedding-ada-002. The name means it has a 100,000+ token vocabulary. 'Tokenizer' = the system that breaks text into pieces (tokens) before a model reads it.">cl100k_base</span> tokenizer is used because it's the same one that OpenAI's embedding models use. The 512 hard maximum matches the historical context window of <code style="font-family:var(--font-mono);font-size:0.85em;">text-embedding-ada-002</code>. If your embedding model supports more tokens, you can safely raise <code style="font-family:var(--font-mono);font-size:0.85em;">--max-tokens</code>.</p>
+    </div>
+  </div>
+
+  <div class="screen">
+    <h2>The sliding window</h2>
+    <p>For long sections, the pipeline uses a <strong>sliding window</strong> algorithm with overlap. Here's a 12-sentence section being chunked. Click <strong>Next Chunk</strong> to step through it:</p>
+
+    <div class="window-viz">
+      <div class="sentence-track" id="sentTrack">
+        <!-- Filled by JS -->
+      </div>
+      <div class="window-stats">
+        <div class="window-stat">
+          <div class="window-stat-val" id="wvChunk">—</div>
+          <div class="window-stat-label">Chunk #</div>
+        </div>
+        <div class="window-stat">
+          <div class="window-stat-val" id="wvTokens">—</div>
+          <div class="window-stat-label">Tokens in chunk</div>
+        </div>
+        <div class="window-stat">
+          <div class="window-stat-val" id="wvOverlap">—</div>
+          <div class="window-stat-label">Overlap sentences</div>
+        </div>
+      </div>
+      <p id="wvDesc" style="text-align:center;font-size:0.875rem;color:var(--text-secondary);min-height:2.5rem;">Press <strong>Next Chunk</strong> to see how the window moves.</p>
+    </div>
+
+    <div class="flow-controls">
+      <button class="btn btn-ghost" onclick="windowStep(-1)">← Previous</button>
+      <button class="btn" onclick="windowStep(1)">Next Chunk →</button>
+    </div>
+  </div>
+
+  <div class="screen">
+    <h2>The fast path: when a section is short</h2>
+    <p>The sliding window is only used for <em>long</em> sections. For a short section (like an Abstract), forcing a sliding window would create tiny overlapping fragments. The fast path prevents this:</p>
+
+    <div class="translation">
+      <div class="trans-code">
+        <div class="trans-header">chunker.py — _make_chunks(), fast path</div>
+        <pre>    prefix = <span class="fn">f</span><span class="st">"[Section: {section}] "</span>
+    prefix_toks = <span class="fn">count_tokens</span>(prefix)
+
+    <span class="cm">    # Fast path: entire buffer fits in</span>
+<span class="cm">    # one chunk — emit without overlap.</span>
+    full_body = <span class="st">" "</span>.<span class="fn">join</span>(sentences)
+    <span class="kw">if</span> (prefix_toks
+            + <span class="fn">count_tokens</span>(full_body)
+            &lt;= max_tokens):
+        <span class="kw">return</span> [<span class="fn">_make_one</span>(
+            sentences,
+            page_nums,
+            chunk_index_start)]</pre>
+      </div>
+      <div class="trans-eng">
+        <div class="trans-header">Plain English</div>
+        <ol>
+          <li><strong>prefix = f"[Section: {section}] "</strong> — Every chunk starts with its section name. This string counts against the token budget.</li>
+          <li><strong>prefix_toks</strong> — Count how many tokens the prefix uses, so we can subtract them from the available space for body text.</li>
+          <li><strong>full_body</strong> — Join all sentences in this section into one long string.</li>
+          <li><strong>if prefix_toks + count_tokens(full_body) ≤ max_tokens</strong> — "Does the entire section fit in one chunk?" If a 3-sentence Abstract uses only 180 tokens, why split it at all?</li>
+          <li><strong>return [_make_one(...)]</strong> — Return a list with exactly one chunk containing everything. No overlap, no sliding window. Done.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="callout green">
+      <div class="callout-label">The tail-emission optimization</div>
+      <p>A second optimization handles the end of long sections. Without it, the sliding window generates a "shrinking spiral" of tiny tail chunks (e.g., 47 → 44 → 43 → 34 → 17 → 10 → 9 tokens). The fix: before starting a new window, check if all remaining sentences fit in one chunk. If yes, emit them as a final chunk and stop.</p>
+    </div>
+  </div>
+
+  <!-- QUIZ 5 -->
+  <div class="quiz-section">
+    <div class="quiz-header">
+      <span class="quiz-icon">🎯</span>
+      <div>
+        <div class="quiz-title">Module 5 Check-In</div>
+        <div class="quiz-subtitle">Diagnose these chunking quality issues.</div>
+      </div>
+    </div>
+
+    <div class="quiz-question" id="qq5-1">
+      <p class="quiz-q">A researcher complains that the AI gives inconsistent answers about an experimental protocol that spans two pages. Looking at chunks.jsonl, you see the protocol description is split across two chunks with no shared content at the boundary. Which parameter would you adjust, and in which direction?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false"
+          data-err="Decreasing target_tokens would make chunks smaller, creating more splits — the opposite of what you want. The problem is the boundary between chunks, not their size.">
+          A) Decrease --target-tokens to create more, smaller chunks</button>
+        <button class="quiz-option" data-correct="true"
+          data-ok="Exactly right! The overlap_tokens parameter controls how much tail content from one chunk is repeated at the start of the next. Increasing it from 60 to 100-120 tokens means a longer shared sentence bridge at the boundary — so the protocol context isn't abruptly cut off.">
+          B) Increase --overlap-tokens (e.g., to 100) so more tail content is shared between adjacent chunks</button>
+        <button class="quiz-option" data-correct="false"
+          data-err="Increasing max_tokens allows bigger chunks, which might keep the protocol in one chunk — but only if it's short enough. For a long protocol, you'd still get a split, and now with less context overlap.">
+          C) Increase --max-tokens so the protocol fits in one chunk</button>
+        <button class="quiz-option" data-correct="false"
+          data-err="The heading detection is doing its job — the section boundary isn't the problem. The issue is at the chunk-level boundary within the section.">
+          D) Adjust heading detection to mark the protocol as its own section</button>
+      </div>
+      <div class="quiz-feedback" id="qf5-1"></div>
+    </div>
+
+    <div class="quiz-question" id="qq5-2">
+      <p class="quiz-q">Running the pipeline on a new paper, you get a tiny 11-token chunk at the end of the "Results" section: "[Section: Results] P &lt; 0.001." This wasn't supposed to happen. What optimization was meant to prevent this, and what does its failure tell you?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="true"
+          data-ok="Correct! The tail-emission optimization checks if all remaining sentences after the next window would fit in one chunk (≤ max_tokens). If the remaining tail was just one very short sentence, the check would have triggered. It failed here because the tail was slightly over max_tokens before the last sentence — so the sliding window took one more step, leaving just this fragment. The fix is either to increase overlap_tokens slightly or check for sub-50-token final chunks as a post-processing step.">
+          A) The tail-emission optimization — it should have emitted all remaining sentences as one final chunk; failure means the tail was narrowly over max_tokens before the last window step</button>
+        <button class="quiz-option" data-correct="false"
+          data-err="The fast path only runs at the beginning, before any sliding window starts. By the time a tail chunk is generated, the fast path has already been bypassed.">
+          B) The fast path — it should have detected this short section and skipped splitting</button>
+        <button class="quiz-option" data-correct="false"
+          data-err="The sub-3-word fragment merge works within sentence splitting (combining fragments from abbreviations). It doesn't affect how the sliding window decides where to end.">
+          C) The sub-3-word sentence merge in the sentence splitter</button>
+        <button class="quiz-option" data-correct="false"
+          data-err="Token counting affects sizes but doesn't prevent tail fragments on its own. The tail-emission check is the specific mechanism designed for this problem.">
+          D) The token counter is using the word×1.3 fallback instead of tiktoken</button>
+      </div>
+      <div class="quiz-feedback" id="qf5-2"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== MODULE 6: OUTPUT & THE BIG PICTURE ====== -->
+<section class="module" id="m6">
+  <div class="module-header">
+    <div class="module-num">MODULE 06</div>
+    <h1 class="module-title">Output, Quality &amp;<br>The Full Picture</h1>
+    <p class="module-subtitle">What a finished chunk looks like, how to interpret quality flags, and where this pipeline fits in the wider RAG world.</p>
+  </div>
+
+  <div class="screen">
+    <h2>Anatomy of a chunk</h2>
+    <p>Each line of <code style="font-family:var(--font-mono);font-size:0.85em;">chunks.jsonl</code> is a <span class="term" data-tip="JSON (JavaScript Object Notation) is a text format for storing structured data using key-value pairs. It's human-readable and machine-parseable. JSONL (JSON Lines) stores one JSON object per line, making it easy to process large datasets without loading everything into memory at once.">JSON</span> object with 8 fields. Here's a real example:</p>
+
+    <div style="background:var(--code-bg);border-radius:var(--r-lg);padding:var(--s5);box-shadow:var(--shadow-md);margin:var(--s5) 0;overflow:hidden;">
+      <pre style="font-size:0.78rem;"><span style="color:#585B70;">{</span>
+  <span style="color:#89B4FA;">"chunk_id"</span><span style="color:#CDD6F4;">:    </span><span style="color:#A6E3A1;">"a3f8c2d1e5b9..."</span><span style="color:#585B70;">,</span>
+  <span style="color:#89B4FA;">"text"</span><span style="color:#CDD6F4;">:        </span><span style="color:#A6E3A1;">"[Section: Results] The kinase
+                   activity was measured at 37°C..."</span><span style="color:#585B70;">,</span>
+  <span style="color:#89B4FA;">"source_file"</span><span style="color:#CDD6F4;">: </span><span style="color:#A6E3A1;">"1471-2199-11-10.pdf"</span><span style="color:#585B70;">,</span>
+  <span style="color:#89B4FA;">"page_start"</span><span style="color:#CDD6F4;">:  </span><span style="color:#FAB387;">4</span><span style="color:#585B70;">,</span>
+  <span style="color:#89B4FA;">"page_end"</span><span style="color:#CDD6F4;">:    </span><span style="color:#FAB387;">5</span><span style="color:#585B70;">,</span>
+  <span style="color:#89B4FA;">"section"</span><span style="color:#CDD6F4;">:     </span><span style="color:#A6E3A1;">"Results"</span><span style="color:#585B70;">,</span>
+  <span style="color:#89B4FA;">"chunk_type"</span><span style="color:#CDD6F4;">:  </span><span style="color:#A6E3A1;">"text"</span><span style="color:#585B70;">,</span>
+  <span style="color:#89B4FA;">"chunk_index"</span><span style="color:#CDD6F4;">: </span><span style="color:#FAB387;">12</span><span style="color:#585B70;">,</span>
+  <span style="color:#89B4FA;">"token_count"</span><span style="color:#CDD6F4;">: </span><span style="color:#FAB387;">378</span>
+<span style="color:#585B70;">}</span></pre>
+    </div>
+
+    <div class="translation">
+      <div class="trans-code">
+        <div class="trans-header">chunker.py — chunk_id &amp; prefix generation</div>
+        <pre>    prefix = <span class="fn">f</span><span class="st">"[Section: {section}] "</span>
+    prefix_toks = <span class="fn">count_tokens</span>(prefix)
+    ...
+    <span class="kw">return</span> <span class="cl">Chunk</span>(
+      chunk_id=<span class="fn">hashlib.md5</span>(
+        (source_file + full)
+        .<span class="fn">encode</span>(<span class="st">"utf-8"</span>)
+      ).<span class="fn">hexdigest</span>(),
+      text=full,
+      ...
+    )</pre>
+      </div>
+      <div class="trans-eng">
+        <div class="trans-header">Plain English</div>
+        <ol>
+          <li><strong>prefix = f"[Section: {section}] "</strong> — Every chunk's text starts with its section label. This isn't decorative — embedding models encode this prefix as part of the chunk's meaning, making retrieval dramatically more precise for section-specific queries.</li>
+          <li><strong>prefix_toks</strong> — The prefix itself uses tokens, so we subtract it from the budget before filling body text.</li>
+          <li><strong>hashlib.md5(...).hexdigest()</strong> — Generate a unique fingerprint for this chunk. <span class="term" data-tip="MD5 is a hashing algorithm that converts any input into a fixed 32-character string (the 'digest'). The same input always produces the same output. Different inputs almost never produce the same output. It's used here as a fast, deterministic ID generator — not for security.">MD5</span> of (source_file + full_text) guarantees uniqueness even if two different PDFs happen to contain the same paragraph.</li>
+          <li><strong>Why include source_file?</strong> — Without it, a paper and its preprint (identical text, different filenames) would produce the same chunk_id for every shared chunk. Including the filename makes IDs unique per-file.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen">
+    <h2>Quality flags: the pipeline's health check</h2>
+    <p>After processing, run <span class="tag">python run.py --analyze chunks.jsonl</span> to get an automatic quality report. These four flags cover the main failure modes:</p>
+
+    <table class="flags-table">
+      <thead><tr><th>Flag</th><th>What it means</th><th>Likely cause</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="flag-code">SHORT_CHUNKS</span></td>
+          <td>Chunks &lt; 50 tokens</td>
+          <td>Very short section (e.g., a 2-sentence abstract); or sentence splitter fragmentation on special characters; or a heading that fired with no following body text</td>
+        </tr>
+        <tr>
+          <td><span class="flag-code">OVERSIZE_CHUNKS</span></td>
+          <td>Chunks &gt; 512 tokens</td>
+          <td>A single sentence longer than max_tokens (e.g., a long DNA sequence inline in the methods, or a sentence with many parenthetical clauses)</td>
+        </tr>
+        <tr>
+          <td><span class="flag-code">DUPLICATE_IDS</span></td>
+          <td>Same chunk_id appears twice</td>
+          <td>The same PDF was processed twice (or a paper and its preprint were both included with the same filename)</td>
+        </tr>
+        <tr>
+          <td><span class="flag-code">SECTION_IMBALANCE</span></td>
+          <td>&gt;70% of all chunks in one section</td>
+          <td>No detectable section boundaries in the paper — all content fell into the default "Introduction" bucket. Check if the paper uses non-standard heading styles.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout green">
+      <div class="callout-label">Result on our benchmark</div>
+      <p>The pipeline ran on 6 academic biology papers and produced: <strong>282 chunks, mean 372.8 tokens, stdev 49.2, P10=368, P90=395</strong> — 90% of chunks fall within 7% of the 380-token target. Quality flags: <strong>OK — no issues detected.</strong></p>
+    </div>
+  </div>
+
+  <div class="screen">
+    <h2>Where this pipeline fits: the full RAG picture</h2>
+    <p>You've now seen everything in step 1. Here's how it connects to a complete AI question-answering system:</p>
+
+    <div class="arch-diagram">
+      <div class="arch-label">STEP 1 — THIS PIPELINE</div>
+      <div class="arch-row">
+        <div class="arch-node hl"><span class="arch-node-icon">📄</span><div class="arch-node-label">PDF Files</div><div class="arch-node-sub">your papers</div></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node hl"><span class="arch-node-icon">🧠</span><div class="arch-node-label">chunker.py</div><div class="arch-node-sub">extraction + slicing</div></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node hl"><span class="arch-node-icon">📦</span><div class="arch-node-label">chunks.jsonl</div><div class="arch-node-sub">282 chunks</div></div>
+      </div>
+      <hr class="arch-divider">
+      <div class="arch-label">STEP 2 — INDEXING</div>
+      <div class="arch-row">
+        <div class="arch-node"><span class="arch-node-icon">📦</span><div class="arch-node-label">chunks.jsonl</div></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node"><span class="arch-node-icon">🔢</span><div class="arch-node-label">Embed Chunks</div><div class="arch-node-sub">text → vectors</div></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node"><span class="arch-node-icon">🗄️</span><div class="arch-node-label">Vector DB</div><div class="arch-node-sub">Chroma / Pinecone</div></div>
+      </div>
+      <hr class="arch-divider">
+      <div class="arch-label">STEP 3 — QUERY TIME</div>
+      <div class="arch-row">
+        <div class="arch-node"><span class="arch-node-icon">❓</span><div class="arch-node-label">User Question</div></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node"><span class="arch-node-icon">🔢</span><div class="arch-node-label">Embed Query</div><div class="arch-node-sub">question → vector</div></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node"><span class="arch-node-icon">🗄️</span><div class="arch-node-label">Vector DB</div><div class="arch-node-sub">find similar chunks</div></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node"><span class="arch-node-icon">🤖</span><div class="arch-node-label">LLM</div><div class="arch-node-sub">generate answer</div></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node"><span class="arch-node-icon">💬</span><div class="arch-node-label">Answer</div><div class="arch-node-sub">+ citations</div></div>
+      </div>
+    </div>
+
+    <div class="callout blue">
+      <div class="callout-label">What this means for you</div>
+      <p>You now have enough mental model to steer an AI agent through building steps 2 and 3. You know exactly what's in chunks.jsonl, what each field means, and how to phrase instructions like: <em>"Load each chunk from chunks.jsonl into Chroma using chunk_id as the document ID, text as the document, and source_file + section as metadata."</em></p>
+    </div>
+  </div>
+
+  <!-- QUIZ 6 -->
+  <div class="quiz-section">
+    <div class="quiz-header">
+      <span class="quiz-icon">🎯</span>
+      <div>
+        <div class="quiz-title">Module 6 Check-In</div>
+        <div class="quiz-subtitle">Interpret these real-world quality scenarios.</div>
+      </div>
+    </div>
+
+    <div class="quiz-question" id="qq6-1">
+      <p class="quiz-q">You run the pipeline on a new preprint and get this quality flag: <code style="font-family:var(--font-mono);font-size:0.85em;">SECTION_IMBALANCE: 'Introduction' holds 94/110 chunks</code>. What does this tell you, and what would you investigate?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false"
+          data-err="SECTION_IMBALANCE just means section detection failed — it doesn't say anything about the paper's quality or length. The paper might be excellent, just formatted unusually.">
+          A) The preprint is low quality and too introductory</button>
+        <button class="quiz-option" data-correct="true"
+          data-ok="Correct! 'Introduction' is the default section name assigned to text before the first detected heading. If 94/110 chunks are there, no headings were detected after the title/intro area. This means the paper uses heading styles that don't match any of the three signals — possibly a sans-serif journal that uses bold-but-same-size headings (Signal 2 fails), non-canonical section names like 'Background and Significance' (Signal 1 fails), and no ALL-CAPS (Signal 3 fails). You'd open the PDF and check what the headings actually look like.">
+          B) Section heading detection found almost no boundaries — likely the paper uses heading styles that don't match any of the three signals</button>
+        <button class="quiz-option" data-correct="false"
+          data-err="Duplicate IDs would trigger a DUPLICATE_IDS flag, not SECTION_IMBALANCE. These are separate checks.">
+          C) The same paper was processed twice, creating duplicate chunks</button>
+        <button class="quiz-option" data-correct="false"
+          data-err="The two-column detector affects text order, not section assignment. Interleaved columns would produce garbled text, not cause all chunks to fall under Introduction.">
+          D) The two-column detector incorrectly merged both columns into one section</button>
+      </div>
+      <div class="quiz-feedback" id="qf6-1"></div>
+    </div>
+
+    <div class="quiz-question" id="qq6-2">
+      <p class="quiz-q">You want to load chunks.jsonl into Chroma (a vector database). You need a unique document ID, the text to embed, and metadata to filter by. How do you map the chunk fields?</p>
+      <div class="quiz-options">
+        <button class="quiz-option" data-correct="false"
+          data-err="chunk_index is per-file sequential — two chunks from different files could have the same index. chunk_id is the correct unique identifier because it's an MD5 of source_file + text.">
+          A) ID = chunk_index, document = text, metadata = {section}</button>
+        <button class="quiz-option" data-correct="true"
+          data-ok="Exactly right! chunk_id is designed as the unique, stable identifier. text is what gets embedded. And the rich metadata — source_file, page_start/end, section, chunk_type, token_count — lets you build powerful filtered retrieval (e.g., 'find chunks from this paper only', 'only look in the Methods section', or 'only return table chunks').">
+          B) ID = chunk_id, document = text, metadata = {source_file, section, chunk_type, page_start, page_end, token_count}</button>
+        <button class="quiz-option" data-correct="false"
+          data-err="token_count is metadata about the chunk, not an identifier. Two chunks with the same token count would collide as IDs.">
+          C) ID = token_count, document = text, metadata = {source_file}</button>
+        <button class="quiz-option" data-correct="false"
+          data-err="section is not unique — many chunks share the same section name (e.g., all Results chunks have section='Results'). Using it as an ID would cause constant collisions.">
+          D) ID = section, document = source_file, metadata = {chunk_id}</button>
+      </div>
+      <div class="quiz-feedback" id="qf6-2"></div>
+    </div>
+  </div>
+
+  <footer class="course-footer">
+    <strong>RAG PDF Chunking Pipeline</strong> — Interactive Course<br>
+    Built from <strong>chunker.py</strong> + <strong>run.py</strong> · 6 modules · Table extraction via <strong>camelot-py</strong> (lattice mode) · All code snippets unmodified from source
+  </footer>
+</section>
+
+<!-- Tooltip element -->
+<div id="global-tooltip" role="tooltip" aria-hidden="true"></div>
+
+<script>
+(function() {
+'use strict';
+
+/* ============================================================
+   NAV DOTS
+   ============================================================ */
+const MODULES = ['m1','m2','m3','m4','m5','m6'];
+const LABELS  = ['Big Picture','Cast','PDF Wrangling','Heading Detective','Slicing Engine','Output'];
+const navDots = document.getElementById('navDots');
+const progressFill = document.getElementById('progressFill');
+const progressLabel = document.getElementById('progressLabel');
+
+MODULES.forEach((id, i) => {
+  const dot = document.createElement('button');
+  dot.className = 'nav-dot';
+  dot.title = `Module ${i+1}: ${LABELS[i]}`;
+  dot.setAttribute('aria-label', `Go to module ${i+1}`);
+  dot.addEventListener('click', () => {
+    document.getElementById(id).scrollIntoView({behavior:'smooth'});
+  });
+  navDots.appendChild(dot);
+});
+
+let currentModule = 0;
+
+function updateNav(idx) {
+  if (idx === currentModule && idx !== 0) return;
+  currentModule = idx;
+  document.querySelectorAll('.nav-dot').forEach((d, i) => d.classList.toggle('active', i === idx));
+  const pct = Math.round(((idx + 1) / MODULES.length) * 100);
+  progressFill.style.width = pct + '%';
+  progressLabel.textContent = `${idx + 1} / ${MODULES.length}`;
+}
+
+const modEls = MODULES.map(id => document.getElementById(id));
+
+const navObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting && e.intersectionRatio >= 0.3) {
+      const idx = modEls.indexOf(e.target);
+      if (idx !== -1) updateNav(idx);
+    }
+  });
+}, { threshold: 0.3 });
+
+modEls.forEach(el => navObserver.observe(el));
+updateNav(0);
+
+/* ============================================================
+   TOOLTIP SYSTEM
+   ============================================================ */
+const tooltip = document.getElementById('global-tooltip');
+let tipTimer;
+
+function showTip(term) {
+  const def = term.dataset.tip;
+  if (!def) return;
+  clearTimeout(tipTimer);
+  tooltip.textContent = def;
+  tooltip.classList.add('visible');
+  tooltip.setAttribute('aria-hidden', 'false');
+  positionTip(term);
+}
+
+function hideTip() {
+  tipTimer = setTimeout(() => {
+    tooltip.classList.remove('visible');
+    tooltip.setAttribute('aria-hidden', 'true');
+  }, 120);
+}
+
+function positionTip(el) {
+  // Use fixed positioning from getBoundingClientRect to avoid overflow clipping
+  tooltip.style.opacity = '0';
+  tooltip.style.display = 'block';
+  const rect = el.getBoundingClientRect();
+  const tw = tooltip.offsetWidth || 240;
+  const th = tooltip.offsetHeight || 60;
+  let top = rect.top - th - 10;
+  let left = rect.left + (rect.width / 2) - (tw / 2);
+  if (top < 8) top = rect.bottom + 8;
+  left = Math.max(8, Math.min(left, window.innerWidth - tw - 8));
+  tooltip.style.top = top + 'px';
+  tooltip.style.left = left + 'px';
+  tooltip.style.opacity = '';
+}
+
+document.querySelectorAll('.term').forEach(term => {
+  term.addEventListener('mouseenter', () => showTip(term));
+  term.addEventListener('mouseleave', hideTip);
+  term.addEventListener('focus', () => showTip(term));
+  term.addEventListener('blur', hideTip);
+  term.setAttribute('tabindex', '0');
+  // Touch: tap to toggle
+  term.addEventListener('click', e => {
+    e.stopPropagation();
+    if (tooltip.classList.contains('visible')) { hideTip(); }
+    else { showTip(term); }
+  });
+});
+document.addEventListener('click', hideTip);
+
+/* ============================================================
+   QUIZ SYSTEM
+   ============================================================ */
+document.querySelectorAll('.quiz-option').forEach(opt => {
+  opt.addEventListener('click', function() {
+    const qDiv = this.closest('.quiz-question');
+    if (qDiv.dataset.answered) return;
+    qDiv.dataset.answered = '1';
+
+    const correct = this.dataset.correct === 'true';
+    this.classList.add(correct ? 'correct' : 'wrong');
+
+    // Disable all options in this question
+    qDiv.querySelectorAll('.quiz-option').forEach(o => {
+      o.disabled = true;
+      if (!correct && o.dataset.correct === 'true') o.classList.add('show-correct');
+    });
+
+    // Show feedback
+    const fb = qDiv.querySelector('.quiz-feedback');
+    if (fb) {
+      fb.style.display = 'block';
+      fb.className = 'quiz-feedback ' + (correct ? 'correct' : 'wrong');
+      fb.textContent = correct
+        ? '✓ ' + (this.dataset.ok || 'Correct!')
+        : '✗ ' + (this.dataset.err || 'Not quite — see the highlighted answer above.');
+    }
+  });
+});
+
+/* ============================================================
+   GROUP CHAT ANIMATION (Module 1)
+   ============================================================ */
+const chat1 = document.getElementById('chat1');
+const chatMsgs = chat1 ? chat1.querySelectorAll('.chat-msg') : [];
+
+const chatObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      chatMsgs.forEach((msg, i) => {
+        setTimeout(() => msg.classList.add('visible'), i * 400);
+      });
+      chatObserver.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.15 });
+
+if (chat1) chatObserver.observe(chat1);
+
+/* ============================================================
+   STEP CARDS ANIMATION
+   ============================================================ */
+const stepObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      const cards = e.target.querySelectorAll('.step-card');
+      cards.forEach((c, i) => setTimeout(() => c.classList.add('visible'), i * 120));
+      stepObserver.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('#ragSteps, #guardSteps').forEach(el => stepObserver.observe(el));
+
+/* ============================================================
+   MESSAGE FLOW ANIMATION (Module 3)
+   ============================================================ */
+const flowSteps = [
+  { nodes: [0], desc: '<strong>PDF File</strong> — A raw .pdf file (e.g., 1471-2199-11-10.pdf). At this point it\'s just bytes with drawing instructions.' },
+  { nodes: [0,1], desc: '<strong>pdfplumber opens the file</strong> and extracts every word with its position (x0, top), font size, and font name — one Python dict per word.' },
+  { nodes: [1,2], desc: '<strong>Words + Font Sizes</strong> — Now we have structured data: [{text:"The", x0:36, top:142, size:9.8}, ...]. We can analyze layout.' },
+  { nodes: [2,3], desc: '<strong>Line Grouper</strong> — Words with the same top coordinate are joined into lines. "The kinase" + "cascade" → "The kinase cascade" with average font size 9.8pt.' },
+  { nodes: [3,4], desc: '<strong>Margin Crop</strong> — Strip the top 13% and bottom 6% of each page (header/footer zone). Running headers that appear on ≥3 pages are also removed.' },
+  { nodes: [4,5], desc: '<strong>Clean Text Blocks</strong> — Each line is classified: heading (True) or body text (False). Output: a list of (text, is_heading, page_num) tuples ready for chunking.' },
+];
+
+let flowIdx = -1;
+const flowNodes = [0,1,2,3,4,5].map(i => document.getElementById('fn'+i));
+const flowArrows = [0,1,2,3,4].map(i => document.getElementById('fa'+i));
+const flowDescEl = document.getElementById('flowDesc');
+const flowNextBtn = document.getElementById('flowNext');
+const flowPrevBtn = document.getElementById('flowPrev');
+
+window.flowStep = function(dir) {
+  flowIdx = Math.max(-1, Math.min(flowSteps.length - 1, flowIdx + dir));
+  // Reset
+  flowNodes.forEach(n => n && n.classList.remove('lit'));
+  flowArrows.forEach(a => a && a.classList.remove('lit'));
+
+  if (flowIdx >= 0) {
+    const step = flowSteps[flowIdx];
+    step.nodes.forEach(ni => flowNodes[ni] && flowNodes[ni].classList.add('lit'));
+    for (let i = 0; i < step.nodes.length - 1; i++) {
+      const ai = step.nodes[i];
+      if (flowArrows[ai]) flowArrows[ai].classList.add('lit');
+    }
+    flowDescEl.innerHTML = step.desc;
+    flowNextBtn.textContent = flowIdx >= flowSteps.length - 1 ? 'Done ✓' : 'Next Step →';
+  } else {
+    flowDescEl.innerHTML = 'Press <strong>Next Step</strong> to trace what happens to a single PDF page.';
+    flowNextBtn.textContent = 'Start →';
+  }
+  if (flowPrevBtn) flowPrevBtn.disabled = flowIdx <= -1;
+};
+
+if (flowPrevBtn) flowPrevBtn.disabled = true;
+
+/* ============================================================
+   SLIDING WINDOW VISUALIZATION (Module 5)
+   ============================================================ */
+const sentTrack = document.getElementById('sentTrack');
+const wvChunkEl = document.getElementById('wvChunk');
+const wvTokensEl = document.getElementById('wvTokens');
+const wvOverlapEl = document.getElementById('wvOverlap');
+const wvDescEl = document.getElementById('wvDesc');
+
+// 12 sentences with mock token counts
+const sentences = [
+  {id:'S1',toks:38},{id:'S2',toks:42},{id:'S3',toks:35},{id:'S4',toks:40},
+  {id:'S5',toks:37},{id:'S6',toks:43},{id:'S7',toks:36},{id:'S8',toks:41},
+  {id:'S9',toks:39},{id:'S10',toks:33},{id:'S11',toks:28},{id:'S12',toks:22}
+];
+
+// Pre-compute chunks (target=200 for demo, overlap=2 sents)
+const windowSteps = [
+  { win: [0,1,2,3,4], overlap: [3,4], chunk: 1, tokens: 192, desc: '<strong>Chunk 1:</strong> Sentences S1–S5 (192 tokens). Reached target. Sentences S4–S5 are the overlap tail.' },
+  { win: [3,4,5,6,7], overlap: [6,7], chunk: 2, tokens: 197, desc: '<strong>Chunk 2:</strong> Window advances by 3 (S1–S5 minus S4–S5 overlap), starting at S4. S4–S7 = 196 tokens. S7–S8 are new overlap.' },
+  { win: [6,7,8,9,10,11], overlap: [], chunk: 3, tokens: 199, desc: '<strong>Chunk 3 (final):</strong> Tail-emission optimization kicks in — remaining S7–S12 fit in one chunk (199 tokens ≤ max 512). Emitted as one final chunk. No more overlap.' },
+];
+
+let windowIdx = -1;
+
+if (sentTrack) {
+  sentences.forEach(s => {
+    const box = document.createElement('div');
+    box.className = 'sent-box';
+    box.id = 'sb_' + s.id;
+    box.textContent = s.id;
+    box.title = s.toks + ' tokens';
+    sentTrack.appendChild(box);
+  });
+}
+
+window.windowStep = function(dir) {
+  windowIdx = Math.max(-1, Math.min(windowSteps.length - 1, windowIdx + dir));
+
+  // Reset all boxes
+  sentences.forEach(s => {
+    const box = document.getElementById('sb_' + s.id);
+    if (box) box.className = 'sent-box';
+  });
+
+  if (windowIdx >= 0) {
+    const ws = windowSteps[windowIdx];
+    ws.win.forEach(i => {
+      const box = document.getElementById('sb_' + sentences[i].id);
+      if (box) box.classList.add('in-win');
+    });
+    ws.overlap.forEach(i => {
+      const box = document.getElementById('sb_' + sentences[i].id);
+      if (box) { box.classList.remove('in-win'); box.classList.add('overlap'); }
+    });
+    if (wvChunkEl) wvChunkEl.textContent = '#' + ws.chunk;
+    if (wvTokensEl) wvTokensEl.textContent = ws.tokens;
+    if (wvOverlapEl) wvOverlapEl.textContent = ws.overlap.length;
+    if (wvDescEl) wvDescEl.innerHTML = ws.desc;
+  } else {
+    if (wvChunkEl) wvChunkEl.textContent = '—';
+    if (wvTokensEl) wvTokensEl.textContent = '—';
+    if (wvOverlapEl) wvOverlapEl.textContent = '—';
+    if (wvDescEl) wvDescEl.innerHTML = 'Press <strong>Next Chunk</strong> to see how the window moves.';
+  }
+};
+
+/* ============================================================
+   GENERIC FADE-UP OBSERVER
+   ============================================================ */
+const fuObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+      fuObserver.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.fade-up').forEach(el => fuObserver.observe(el));
+
+/* ============================================================
+   KEYBOARD NAVIGATION
+   ============================================================ */
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  const cur = modEls[currentModule];
+  if (e.key === 'ArrowDown' && currentModule < MODULES.length - 1) {
+    modEls[currentModule + 1].scrollIntoView({behavior: 'smooth'});
+  } else if (e.key === 'ArrowUp' && currentModule > 0) {
+    modEls[currentModule - 1].scrollIntoView({behavior: 'smooth'});
+  }
+});
+
+})();
+</script>
+</body>
+</html>

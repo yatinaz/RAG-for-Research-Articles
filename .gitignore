@@ -1,0 +1,12 @@
+.env
+chroma_db/
+__pycache__/
+*.pyc
+*.pyo
+eval_results.json
+chunks.jsonl
+chunks_vision.jsonl
+inspect*.txt
+.claude/
+*.pdf
+GenAI Engineer - Assignment.pdf
