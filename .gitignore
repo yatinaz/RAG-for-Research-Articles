@@ -1,5 +1,5 @@
 .env
-chroma_db/
+# chroma_db/ — committed so Streamlit Cloud can serve the vector index
 __pycache__/
 *.pyc
 *.pyo
